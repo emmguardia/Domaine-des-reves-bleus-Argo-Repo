@@ -9,6 +9,9 @@ import Products from './pages/Products';
 import Services from './pages/Services';
 import Contact from './pages/Contact';
 import Profile from './pages/Profile';
+import MentionsLegales from './pages/MentionsLegales';
+import CGV from './pages/CGV';
+import PolitiqueConfidentialite from './pages/PolitiqueConfidentialite';
 import Header from './components/Header';
 import Footer from './components/Footer';
 
@@ -29,6 +32,9 @@ function App() {
             <Route path="/services" element={<Services />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/metion-legale" element={<MentionsLegales />} />
+            <Route path="/cgv" element={<CGV />} />
+            <Route path="/politique-de-confidentialite" element={<PolitiqueConfidentialite />} />
           </Routes>
                   </main>
                   <Footer />

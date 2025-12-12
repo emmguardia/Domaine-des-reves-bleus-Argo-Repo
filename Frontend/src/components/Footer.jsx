@@ -45,8 +45,18 @@ function Footer() {
           </div>
         </div>
         
-        <div className="border-t border-gray-600 mt-12 pt-8 text-center text-gray-400">
-          <p>© 2024 Le Domaine des Rêves Bleus - Tous droits réservés</p>
+        <div className="border-t border-gray-600 mt-12 pt-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400">
+            <p>© 2024 Le Domaine des Rêves Bleus - Tous droits réservés</p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link to="/metion-legale" className="hover:text-primary transition-colors">Mentions légales</Link>
+              <Link to="/cgv" className="hover:text-primary transition-colors">Condition Général de Vente</Link>
+              <Link to="/politique-de-confidentialite" className="hover:text-primary transition-colors">Politique de Confidentialité</Link>
+            </div>
+          </div>
+          <div className="mt-4 text-center text-gray-500 text-sm">
+            <p>Site réalisé par <a href="https://www.zenixweb.fr" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">zenixweb.fr</a></p>
+          </div>
         </div>
       </div>
     </footer>

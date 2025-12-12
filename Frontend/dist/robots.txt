@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://www.domainedesrevesbleus.eu/sitemap.xml
+
+# Bloquer les pages nécessitant une authentification
+Disallow: /login
+Disallow: /register
+Disallow: /profile
+Disallow: /checkout
+Disallow: /order-confirmation
+Disallow: /reset-password
+
