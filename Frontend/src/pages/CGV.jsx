@@ -20,7 +20,7 @@ function CGV() {
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">Entreprise</h2>
               <ul className="space-y-2">
                 <li><strong>Nom :</strong> Domaine des Rêves Bleus</li>
-                <li><strong>Adresse :</strong> 35 chemin des vignes, 69400 Arnas, France</li>
+                <li><strong>Adresse :</strong>69400 Arnas, France</li>
                 <li><strong>Téléphone :</strong> 07 86 10 07 23</li>
                 <li><strong>Email :</strong> domainedesrevesbleus@orange.fr</li>
                 <li><strong>Numéro SIRET :</strong> 844 066 001 00018</li>

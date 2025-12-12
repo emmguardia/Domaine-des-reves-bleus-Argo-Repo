@@ -29,7 +29,7 @@ function MentionsLegales() {
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">2. Éditeur du site</h2>
               <ul className="space-y-2 text-gray-600">
                 <li><strong>Nom / Raison sociale :</strong> Domaine des Rêves Bleus</li>
-                <li><strong>Adresse :</strong> 35 chemin des vignes, 69400 Arnas, France</li>
+                <li><strong>Adresse :</strong>69400 Arnas, France</li>
                 <li><strong>Téléphone :</strong> 07 86 10 07 23</li>
                 <li><strong>Email :</strong> domainedesrevesbleus@orange.fr</li>
                 <li><strong>Statut / Forme juridique :</strong> Individuel BA au réel simplifié</li>

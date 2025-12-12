@@ -30,7 +30,7 @@ function PolitiqueConfidentialite() {
               <ul className="space-y-2 text-gray-600">
                 <li><strong>Nom :</strong> Domaine des Rêves Bleus</li>
                 <li><strong>Représentant légal :</strong> Melozay Laurence</li>
-                <li><strong>Adresse :</strong> 35 chemin des vignes, 69400 Arnas, France</li>
+                <li><strong>Adresse :</strong>69400 Arnas, France</li>
                 <li><strong>Téléphone :</strong> 07 86 10 07 23</li>
                 <li><strong>Email :</strong> domainedesrevesbleus@orange.fr</li>
                 <li><strong>Numéro SIRET :</strong> 844 066 001 00018</li>
@@ -291,7 +291,7 @@ function PolitiqueConfidentialite() {
               <ul className="space-y-2 text-gray-600">
                 <li><strong>Email :</strong> <a href="mailto:domainedesrevesbleus@orange.fr" className="text-blue-600 hover:underline">domainedesrevesbleus@orange.fr</a></li>
                 <li><strong>Téléphone :</strong> 07 86 10 07 23</li>
-                <li><strong>Adresse :</strong> 35 chemin des vignes, 69400 Arnas, France</li>
+                <li><strong>Adresse :</strong>69400 Arnas, France</li>
               </ul>
             </section>
           </div>
