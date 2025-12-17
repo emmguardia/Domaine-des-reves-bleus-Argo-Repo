@@ -42,7 +42,7 @@ const createPaymentRouter = (stripe) => {
       const { amount, currency = 'eur' } = req.body;
       const userId = req.user.id; // Récupéré du middleware d'authentification
 
-      // Créer l'intention de paiement
+      // Créer l'intention de paiement avec support des méthodes modernes (Google Pay, Apple Pay, etc.)
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency,
@@ -51,6 +51,7 @@ const createPaymentRouter = (stripe) => {
         },
         automatic_payment_methods: {
           enabled: true,
+          allow_redirects: 'always',
         },
       });
 

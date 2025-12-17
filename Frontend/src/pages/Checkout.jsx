@@ -69,24 +69,34 @@ function CheckoutForm() {
     }));
   }, [cartItems.length]);
 
-  // Vérifier que l'élément de paiement est monté
+  // Vérifier que l'élément de paiement est monté et vérifier les méthodes disponibles
   useEffect(() => {
-    if (elements) {
+    if (elements && stripe) {
       // Ajouter un petit délai pour s'assurer que l'élément est complètement monté
-      const timer = setTimeout(() => {
+      const timer = setTimeout(async () => {
         const paymentElement = elements.getElement(PaymentElement);
         const isMounted = !!paymentElement && paymentElementRef.current;
+        
+        // Vérifier les méthodes de paiement disponibles
+        try {
+          const availableMethods = await stripe.getPaymentElementAvailablePaymentMethods();
+          console.log('Méthodes de paiement disponibles:', availableMethods);
+        } catch (err) {
+          console.log('Impossible de récupérer les méthodes disponibles:', err);
+        }
+        
         console.log('Vérification élément de paiement:', {
           paymentElement: !!paymentElement,
           ref: !!paymentElementRef.current,
-          isMounted
+          isMounted,
+          stripeReady: !!stripe
         });
         setIsPaymentElementMounted(isMounted);
       }, 1000); // Augmenter le délai pour être sûr
 
       return () => clearTimeout(timer);
     }
-  }, [elements]);
+  }, [elements, stripe]);
 
   // Pré-remplir les informations si l'utilisateur est connecté
   useEffect(() => {
@@ -557,7 +567,25 @@ function CheckoutForm() {
               <div className="border-t pt-5">
                  <h3 className="text-lg font-medium mb-3">Informations de Paiement</h3>
                  <div ref={paymentElementRef}>
-                   <PaymentElement />
+                   <PaymentElement 
+                     options={{
+                       layout: 'tabs',
+                       wallets: {
+                         applePay: 'auto',
+                         googlePay: 'auto'
+                       },
+                       business: {
+                         name: 'Les Rêves Bleus'
+                       },
+                       fields: {
+                         billingDetails: {
+                           address: {
+                             country: 'auto'
+                           }
+                         }
+                       }
+                     }}
+                   />
                  </div>
               </div>
 
@@ -651,12 +679,23 @@ function CheckoutPage() {
 
   const appearance = {
     theme: 'stripe',
+    variables: {
+      colorPrimary: '#3b82f6',
+      colorBackground: '#ffffff',
+      colorText: '#1f2937',
+      colorDanger: '#ef4444',
+      fontFamily: 'system-ui, sans-serif',
+      spacingUnit: '4px',
+      borderRadius: '8px',
+    },
   };
 
   const options = clientSecret ? {
     clientSecret,
     appearance,
-  } : { appearance };
+    locale: 'fr',
+    loader: 'auto',
+  } : { appearance, locale: 'fr', loader: 'auto' };
 
   if (loadingSecret) {
     return (
