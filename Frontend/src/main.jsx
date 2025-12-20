@@ -102,12 +102,63 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <AuthProvider>
-    <CartProvider>
-      <App />
-    </CartProvider>
-    </AuthProvider>
-  </React.StrictMode>,
-)
+// Attendre que les styles soient chargés avant de rendre l'application
+function waitForStyles() {
+  return new Promise((resolve) => {
+    // Fonction pour marquer les styles comme chargés
+    const markStylesLoaded = () => {
+      // Attendre que tous les stylesheets soient chargés
+      const stylesheets = Array.from(document.styleSheets);
+      const allLoaded = stylesheets.every(sheet => {
+        try {
+          return sheet.cssRules || sheet.rules; // Vérifier si le stylesheet est accessible
+        } catch (e) {
+          // Si on ne peut pas accéder (CORS), on considère qu'il est chargé
+          return true;
+        }
+      });
+      
+      if (allLoaded || document.readyState === 'complete') {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            document.body.classList.add('styles-loaded');
+            resolve();
+          });
+        });
+      } else {
+        // Réessayer après un court délai
+        setTimeout(markStylesLoaded, 50);
+      }
+    };
+    
+    // Si le document est déjà chargé
+    if (document.readyState === 'complete') {
+      markStylesLoaded();
+    } else if (document.readyState === 'interactive') {
+      // Attendre que tous les styles soient chargés
+      window.addEventListener('load', markStylesLoaded);
+      // Timeout de sécurité
+      setTimeout(markStylesLoaded, 1000);
+    } else {
+      // Attendre que le DOM soit prêt puis que les styles soient chargés
+      document.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('load', markStylesLoaded);
+        // Timeout de sécurité
+        setTimeout(markStylesLoaded, 1000);
+      });
+    }
+  });
+}
+
+// Attendre les styles puis rendre l'application
+waitForStyles().then(() => {
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode>
+      <AuthProvider>
+      <CartProvider>
+        <App />
+      </CartProvider>
+      </AuthProvider>
+    </React.StrictMode>,
+  );
+});

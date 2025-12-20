@@ -39,16 +39,34 @@ const createPaymentRouter = (stripe) => {
   // Route pour créer une intention de paiement
   router.post('/create-payment-intent', async (req, res) => {
     try {
-      const { amount, currency = 'eur' } = req.body;
+      const { amount, currency = 'eur', shippingInfo, shippingCost } = req.body;
       const userId = req.user.id; // Récupéré du middleware d'authentification
+
+      // Préparer les metadata avec les informations de livraison
+      const metadata = {
+        userId: userId
+      };
+
+      if (shippingInfo) {
+        metadata.firstName = shippingInfo.firstName || '';
+        metadata.lastName = shippingInfo.lastName || '';
+        metadata.email = shippingInfo.email || '';
+        metadata.phone = shippingInfo.phone || '';
+        metadata.address = shippingInfo.address || '';
+        metadata.city = shippingInfo.city || '';
+        metadata.postalCode = shippingInfo.postalCode || '';
+        metadata.country = shippingInfo.country || 'France';
+      }
+
+      if (shippingCost) {
+        metadata.shippingCost = shippingCost.toString();
+      }
 
       // Créer l'intention de paiement avec support des méthodes modernes (Google Pay, Apple Pay, etc.)
       const paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency,
-        metadata: {
-          userId: userId
-        },
+        metadata,
         automatic_payment_methods: {
           enabled: true,
           allow_redirects: 'always',

@@ -49,7 +49,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (response) => response,
       (error) => {
         if (axios.isAxiosError(error) && error.response?.status === 401) {
-          console.log('Erreur 401 détectée, déconnexion automatique...');
+          if (import.meta.env.DEV) {
+            console.log('Erreur 401 détectée, déconnexion automatique...');
+          }
           logout();
         }
         return Promise.reject(error);
@@ -66,7 +68,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadCart = async () => {
       if (user) {
         try {
-          console.log('Chargement du panier depuis le backend pour l\'utilisateur:', user._id);
+          if (import.meta.env.DEV) {
+            console.log('Chargement du panier depuis le backend pour l\'utilisateur:', user._id);
+          }
           const token = localStorage.getItem('token');
           if (!token) {
             console.error('Token non trouvé');
@@ -80,7 +84,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           });
 
-          console.log('Réponse du backend:', response.data);
+          if (import.meta.env.DEV) {
+            console.log('Réponse du backend:', response.data);
+          }
           if (response.data && response.data.items) {
             isUpdatingFromBackend.current = true;
             // Vérifier que les poids sont présents
@@ -96,15 +102,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const totalWeightGrams = itemsWithWeights.reduce((sum: number, item: any) => 
               sum + (item.weightGrams || 100) * item.quantity, 0
             );
-            console.log('Poids total du panier:', totalWeightGrams, 'grammes (', (totalWeightGrams / 1000).toFixed(2), 'kg)');
-            console.log('Détail des poids:', itemsWithWeights.map((item: any) => 
-              `${item.name}: ${item.weightGrams}g x ${item.quantity} = ${item.weightGrams * item.quantity}g`
-            ));
+            if (import.meta.env.DEV) {
+              console.log('Poids total du panier:', totalWeightGrams, 'grammes (', (totalWeightGrams / 1000).toFixed(2), 'kg)');
+              console.log('Détail des poids:', itemsWithWeights.map((item: any) => 
+                `${item.name}: ${item.weightGrams}g x ${item.quantity} = ${item.weightGrams * item.quantity}g`
+              ));
+            }
             
             setCartItems(itemsWithWeights);
-            console.log('Panier chargé avec succès:', itemsWithWeights);
+            if (import.meta.env.DEV) {
+              console.log('Panier chargé avec succès:', itemsWithWeights);
+            }
           } else {
-            console.log('Aucun panier trouvé, initialisation d\'un panier vide');
+            if (import.meta.env.DEV) {
+              console.log('Aucun panier trouvé, initialisation d\'un panier vide');
+            }
             setCartItems([]);
           }
         } catch (error) {
@@ -116,7 +128,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCartItems([]);
         }
       } else {
-        console.log('Utilisateur non connecté, panier vide');
+        if (import.meta.env.DEV) {
+          console.log('Utilisateur non connecté, panier vide');
+        }
         setCartItems([]);
       }
     };
@@ -129,8 +143,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user && cartItems.length > 0 && !isUpdatingFromBackend.current) {
       const saveCart = async () => {
         try {
-          console.log('Sauvegarde du panier sur le backend pour l\'utilisateur:', user._id);
-          console.log('Données à sauvegarder:', cartItems);
+          if (import.meta.env.DEV) {
+            console.log('Sauvegarde du panier sur le backend pour l\'utilisateur:', user._id);
+            console.log('Données à sauvegarder:', cartItems);
+          }
           
           // Nettoyer les données pour s'assurer que tous les champs requis sont présents
           const cleanItems = cartItems
@@ -145,7 +161,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               weightGrams: item.weightGrams ?? 100
             }));
           
-          console.log('Données nettoyées:', cleanItems);
+          if (import.meta.env.DEV) {
+            console.log('Données nettoyées:', cleanItems);
+          }
           
           const token = localStorage.getItem('token');
           if (!token) {
@@ -163,13 +181,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           );
-          console.log('Réponse du backend après sauvegarde:', response.data);
+          if (import.meta.env.DEV) {
+            console.log('Réponse du backend après sauvegarde:', response.data);
+          }
           
           // Mettre à jour l'état local avec les données reçues du backend
           if (response.data && response.data.items) {
             isUpdatingFromBackend.current = true;
             setCartItems(response.data.items);
-            console.log('État local mis à jour avec les données du backend:', response.data.items);
+            if (import.meta.env.DEV) {
+              console.log('État local mis à jour avec les données du backend:', response.data.items);
+            }
             // Reset le flag après un court délai
             setTimeout(() => {
               isUpdatingFromBackend.current = false;
@@ -191,7 +213,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [cartItems, user]);
 
   const addToCart = (item: CartItem) => {
-    console.log('Ajout au panier:', item);
+    if (import.meta.env.DEV) {
+      console.log('Ajout au panier:', item);
+    }
     setCartItems(prevItems => {
       // Chercher un item existant avec le même ID ET le même volume
       const existingItem = prevItems.find(i => 
@@ -201,28 +225,38 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newItems = prevItems.map(i =>
           (i.id === item.id && i.volume === item.volume) ? { ...i, quantity: i.quantity + 1 } : i
         );
-        console.log('Mise à jour de la quantité pour l\'article existant:', newItems);
+        if (import.meta.env.DEV) {
+          console.log('Mise à jour de la quantité pour l\'article existant:', newItems);
+        }
         return newItems;
       }
       const newItems = [...prevItems, { ...item, quantity: 1, weightGrams: item.weightGrams ?? 100 }];
-      console.log('Ajout d\'un nouvel article au panier:', newItems);
+      if (import.meta.env.DEV) {
+        console.log('Ajout d\'un nouvel article au panier:', newItems);
+      }
       return newItems;
     });
   };
 
   const removeFromCart = (itemId: number, volume?: string | null) => {
-    console.log('Suppression du panier:', itemId, volume);
+    if (import.meta.env.DEV) {
+      console.log('Suppression du panier:', itemId, volume);
+    }
     setCartItems(prevItems => {
       const newItems = prevItems.filter(item => 
         !(item.id === itemId && item.volume === volume)
       );
-      console.log('Nouveau panier après suppression:', newItems);
+      if (import.meta.env.DEV) {
+        console.log('Nouveau panier après suppression:', newItems);
+      }
       return newItems;
     });
   };
 
   const updateQuantity = (itemId: number, quantity: number, volume?: string | null) => {
-    console.log('Mise à jour quantité:', itemId, quantity, volume);
+    if (import.meta.env.DEV) {
+      console.log('Mise à jour quantité:', itemId, quantity, volume);
+    }
     if (quantity <= 0) {
       removeFromCart(itemId, volume);
     } else {
@@ -230,14 +264,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newItems = prevItems.map(item =>
           (item.id === itemId && item.volume === volume) ? { ...item, quantity } : item
         );
-        console.log('Nouveau panier après mise à jour de la quantité:', newItems);
+        if (import.meta.env.DEV) {
+          console.log('Nouveau panier après mise à jour de la quantité:', newItems);
+        }
         return newItems;
       });
     }
   };
 
   const clearCart = () => {
-    console.log('Vidage du panier');
+    if (import.meta.env.DEV) {
+      console.log('Vidage du panier');
+    }
     setCartItems([]);
     setDeliveryAddress('');
     setShippingCalculation(null);
@@ -264,22 +302,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Calculer les frais de port avec géolocalisation
-      console.log('Calcul des frais de port pour:', cartWeightGrams, 'grammes (', (cartWeightGrams / 1000).toFixed(2), 'kg)');
-      console.log('Détail des items:', cartItems.map(item => 
-        `${item.name}: ${item.weightGrams ?? 100}g x ${item.quantity} = ${(item.weightGrams ?? 100) * item.quantity}g`
-      ));
+      if (import.meta.env.DEV) {
+        console.log('Calcul des frais de port pour:', cartWeightGrams, 'grammes (', (cartWeightGrams / 1000).toFixed(2), 'kg)');
+        console.log('Détail des items:', cartItems.map(item => 
+          `${item.name}: ${item.weightGrams ?? 100}g x ${item.quantity} = ${(item.weightGrams ?? 100) * item.quantity}g`
+        ));
+      }
       
       const calculation = await calculateShippingCost(address, cartWeightGrams);
       
       if (calculation) {
         setShippingCalculation(calculation);
-        console.log('Calcul des frais de port réussi:', calculation);
-        console.log('Prix La Poste calculé pour', calculation.weightKg, 'kg:', calculation.basePrice, '€');
+        if (import.meta.env.DEV) {
+          console.log('Calcul des frais de port réussi:', calculation);
+          console.log('Prix La Poste calculé pour', calculation.weightKg, 'kg:', calculation.basePrice, '€');
+        }
       } else {
         // Fallback en cas d'erreur
         const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
         setShippingCalculation(fallbackCalculation);
-        console.log('Utilisation du calcul par défaut:', fallbackCalculation);
+        if (import.meta.env.DEV) {
+          if (import.meta.env.DEV) {
+          console.log('Utilisation du calcul par défaut:', fallbackCalculation);
+        }
+        }
       }
     } catch (error) {
       console.error('Erreur lors du calcul des frais de port:', error);

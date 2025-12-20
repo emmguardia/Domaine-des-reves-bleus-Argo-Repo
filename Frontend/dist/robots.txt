@@ -1,14 +1,31 @@
+# robots.txt pour Les Rêves Bleus - Toilettage Canin
+# https://domainedesrevesbleus.eu
+
 User-agent: *
 Allow: /
+Allow: /products
+Allow: /services
+Allow: /contact
+Allow: /metion-legale
+Allow: /cgv
+Allow: /politique-de-confidentialite
 
-# Sitemap
-Sitemap: https://www.domainedesrevesbleus.eu/sitemap.xml
-
-# Bloquer les pages nécessitant une authentification
+# Pages privées à ne pas indexer
 Disallow: /login
 Disallow: /register
+Disallow: /reset-password
 Disallow: /profile
 Disallow: /checkout
 Disallow: /order-confirmation
-Disallow: /reset-password
+Disallow: /admin-panel
+Disallow: /admin-panel/
 
+# API et ressources techniques
+Disallow: /api/
+Disallow: /assets/
+
+# Sitemap
+Sitemap: https://domainedesrevesbleus.eu/sitemap.xml
+
+# Crawl-delay (optionnel, pour éviter de surcharger le serveur)
+Crawl-delay: 1

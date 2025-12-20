@@ -29,7 +29,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fonction pour mettre à jour l'état utilisateur
   const updateUserState = (userData: User | null) => {
-    console.log('Mise à jour de l\'état utilisateur:', userData);
+    if (import.meta.env.DEV) {
+      console.log('Mise à jour de l\'état utilisateur:', userData);
+    }
     setUser(userData);
     if (userData) {
       localStorage.setItem('user', JSON.stringify(userData));
@@ -57,7 +59,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Vérifier l'expiration
       const currentTime = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < currentTime) {
-        console.log('Token expiré:', payload.exp, 'vs', currentTime);
+        if (import.meta.env.DEV) {
+          console.log('Token expiré:', payload.exp, 'vs', currentTime);
+        }
         return true;
       }
       
@@ -69,7 +73,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    console.log('Vérification de l\'état de connexion au chargement...');
+    if (import.meta.env.DEV) {
+      console.log('Vérification de l\'état de connexion au chargement...');
+    }
     const storedUser = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
     
@@ -77,26 +83,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         // Vérifier si le token est expiré
         if (isTokenExpired(storedToken)) {
-          console.log('Token expiré, déconnexion automatique...');
+          if (import.meta.env.DEV) {
+            console.log('Token expiré, déconnexion automatique...');
+          }
           updateUserState(null);
           return;
         }
         
         const userData = JSON.parse(storedUser);
-        console.log('Utilisateur trouvé dans le stockage local:', userData);
+        if (import.meta.env.DEV) {
+          console.log('Utilisateur trouvé dans le stockage local:', userData);
+        }
         updateUserState(userData);
       } catch (error) {
         console.error('Erreur lors de la récupération des données utilisateur:', error);
         updateUserState(null);
       }
     } else {
-      console.log('Aucun utilisateur trouvé dans le stockage local');
+      if (import.meta.env.DEV) {
+        console.log('Aucun utilisateur trouvé dans le stockage local');
+      }
       updateUserState(null);
     }
   }, []);
 
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
-    console.log('Tentative de connexion avec:', email, 'rememberMe:', rememberMe);
+    if (import.meta.env.DEV) {
+      console.log('Tentative de connexion avec:', email, 'rememberMe:', rememberMe);
+    }
     try {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -112,13 +126,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const data = await response.json();
-      console.log('Réponse du serveur:', data);
+      if (import.meta.env.DEV) {
+        console.log('Réponse du serveur:', data);
+      }
 
       if (!response.ok) {
         throw new Error(JSON.stringify(data));
       }
 
-      console.log('Connexion réussie, mise à jour de l\'état...');
+      if (import.meta.env.DEV) {
+        console.log('Connexion réussie, mise à jour de l\'état...');
+      }
       updateUserState(data);
       
       // Si rememberMe est true, on stocke les informations dans localStorage
@@ -252,7 +270,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Vérifier si le token est expiré avant de faire la requête
       if (isTokenExpired(token)) {
-        console.log('Token expiré lors du rafraîchissement, déconnexion...');
+        if (import.meta.env.DEV) {
+          console.log('Token expiré lors du rafraîchissement, déconnexion...');
+        }
         updateUserState(null);
         return;
       }

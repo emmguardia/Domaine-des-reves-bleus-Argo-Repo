@@ -616,7 +616,15 @@ function CheckoutForm() {
   );
 }
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51RGyN2FPffgTXsMQPJKAbFWVpexGFKoGVXwqVkMYVuYXF4C4D20Qjh6hxt1EgcfQJz834fd5El7AwxOIIfHPuSH600wxmrPm6A');
+// Configuration Stripe avec options pour réduire les cookies tiers
+const stripePromise = loadStripe(
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51RGyN2FPffgTXsMQPJKAbFWVpexGFKoGVXwqVkMYVuYXF4C4D20Qjh6hxt1EgcfQJz834fd5El7AwxOIIfHPuSH600wxmrPm6A',
+  {
+    // Options pour réduire les cookies tiers (les warnings restent normaux avec Stripe)
+    betas: [],
+    locale: 'fr'
+  }
+);
 
 function CheckoutPage() {
   const [clientSecret, setClientSecret] = useState('');
@@ -641,7 +649,8 @@ function CheckoutPage() {
         },
         body: JSON.stringify({ 
           amount: Math.round(cartTotal * 100),
-          currency: 'eur'
+          currency: 'eur',
+          shippingCost: 0 // Sera mis à jour plus tard
         }),
       })
       .then((res) => {

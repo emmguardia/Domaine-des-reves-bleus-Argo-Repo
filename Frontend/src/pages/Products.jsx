@@ -1,273 +1,171 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaShoppingCart } from 'react-icons/fa';
+import { FaShoppingCart, FaExclamationTriangle } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 
-const allProducts = [
-  {
-    id: 1,
-    name: 'Carde double flex',
-    description: 'Carde professionnelle double face pour démêler efficacement',
-    price: 21.00,
-    image: '/images/Carde_double_flex.jpg',
-    rating: 5,
-    category: 'Accessoires',
-    weightGrams: 175
-  },
-  {
-    id: 2,
-    name: 'Carde à nœud',
-    description: 'Carde spécialement conçue pour éliminer les nœuds tenaces',
-    price: 21.00,
-    image: '/images/Carde_à_nœuds.jpg',
-    rating: 5,
-    category: 'Accessoires',
-    weightGrams: 60
-  },
-  {
-    id: 3,
-    name: 'Peigne',
-    description: 'Peigne professionnel pour finition et démêlage',
-    price: 7.50,
-    image: '/images/Peigne.jpg',
-    rating: 4,
-    category: 'Accessoires',
-    weightGrams: 90
-  },
-  {
-    id: 4,
-    name: 'Coat prince 20 dents',
-    description: 'Peigne Coat Prince professionnel 20 dents pour toilettage précis',
-    price: 35.50,
-    image: '/images/Coat_prince_20_dents.jpg',
-    rating: 5,
-    category: 'Accessoires',
-    weightGrams: 115
-  },
-  {
-    id: 5,
-    name: 'Coupe nœud',
-    description: 'Ciseaux spécialisés pour couper les nœuds sans blesser',
-    price: 11.00,
-    image: '/images/coupe_noeud.png',
-    rating: 4,
-    category: 'Accessoires',
-    weightGrams: 60
-  },
-  {
-    id: 6,
-    name: 'Crochets à tique',
-    description: 'Outils professionnels pour retirer les tiques en toute sécurité',
-    price: 7.00,
-    image: '/images/Crochets_a_tique.jpg',
-    rating: 4,
-    category: 'Accessoires',
-    weightGrams: 30
-  },
-  {
-    id: 7,
-    name: 'Spray Conditionneur',
-    description: 'Produit sublime pour éclat et brillance du pelage',
-    price: 20.50,
-    image: '/images/Spray_Conditionneur.jpg',
-    rating: 4,
-    category: 'Soins Et Parfums',
-    weightGrams: 285
-  },
-  {
-    id: 8,
-    name: 'Lotion Aloe Vera',
-    description: 'Lotion démêlante enrichie à l\'aloe vera pour faciliter le brossage',
-    price: 16.00,
-    image: '/images/Lotion_Aloe_Vera.jpg',
-    rating: 5,
-    category: 'Soins Et Parfums',
-    volumes: {
-      '250ml': 16.00
-    },
-    weightGrams: 285
-  },
-  {
-    id: 9,
-    name: 'Lotion Argan',
-    description: 'Shampooing doux enrichi à l\'aloe vera pour tous types de poils',
-    price: 16,
-    image: '/images/Lotion_Argan.jpg',
-    rating: 5,
-    category: 'Soins Et Parfums',
-    volumes: {
-      '250ml': 16,
-    },
-    weightGrams: 285
-  },
-  {
-    id: 10,
-    name: 'Crème Argan',
-    description: 'Crème démêlante enrichie à l\'argan pour faciliter le brossage',
-    price: 16.00,
-    image: '/images/Crème_Argan.jpg',
-    rating: 5,
-    category: 'Soins Et Parfums',
-    volumes: {
-      '250ml': 16.00,
-    },
-    weightGrams: 275
-  },
-  {
-    id: 11,
-    name: 'Crème Aloe Vera',
-    description: 'Crème démêlante enrichie à l\'aloe vera pour faciliter le brossage',
-    price: 16.00,
-    image: '/images/Crème_Aloe_Vera.jpg',
-    rating: 5,
-    category: 'Soins Et Parfums',
-    volumes: {
-      '250ml': 16.00,
-    },
-    weightGrams: 275
-  },
-  {
-    id: 12,
-    name: 'Shampoing Aloe Vera',
-    description: 'Shampooing doux enrichi à l\'aloe vera pour tous types de poils',
-    price: 12.50,
-    image: '/images/Shampoing_Aloe_Vera.jpg',
-    rating: 5,
-    category: 'Shampoings',
-    volumes: {
-      '250ml': 12.50,
-    },
-    weightGrams: 280
-  },
-  {
-    id: 13,
-    name: 'Shampoing Forty',
-    description: 'Shampooing professionnel forty pour tous types de poils',
-    price: 12.50,
-    image: '/images/Shampoing_Forty.jpg',
-    category: 'Shampoings',
-    volumes: {
-      '250ml': 12.50,
-    },
-    weightGrams: 280
-  },
-  {
-    id: 14,
-    name: 'Shampooing Copacabana',
-    description: 'Shampooing copacabana pour poils brillants et soyeux',
-    price: 12.50,
-    image: '/images/Shampoing_Forty.jpg',
-    category: 'Shampoings',
-    volumes: {
-      '250ml': 12.50,
-    },
-    weightGrams: 280,
-    isPlaceholder: true
-  },
-  {
-    id: 15,
-    name: 'Shampoing Argan',
-    description: 'Shampooing doux à l\'argan pour peaux sensibles',
-    price: 12.50,
-    image: '/images/Shampoing_Argan.jpg',
-    rating: 4,
-    category: 'Shampoings',
-    volumes: {
-      '250ml': 12.50,
-    },
-    weightGrams: 280
-  },
-  {
-    id: 16,
-    name: 'Shampooing Amandes',
-    description: 'Shampooing doux aux amandes pour peaux sensibles',
-    price: 12.50,
-    image: '/images/Shampoing_Amandes.jpg',
-    rating: 4,
-    category: 'Shampoings',
-    volumes: {
-      '250ml': 12.50,
-    },
-    weightGrams: 280
-  },
-  {
-    id: 17,
-    name: 'Parfum',
-    description: 'Parfum délicat pour chiens, senteur fraîche et durable',
-    price: 8.00,
-    image: '/images/Parfum.jpg',
-    rating: 4,
-    category: 'Soins Et Parfums',
-    weightGrams: 30,
-    fragrances: {
-      'Malabar': {
-        name: 'Malabar',
-        description: 'Senteur exotique et envoûtante'
-      },
-      'Bamboo': {
-        name: 'Bamboo',
-        description: 'Senteur de bambou apaisante et naturelle'
-      },
-      'Boo Tella': {
-        name: 'Boo Tella',
-        description: 'Senteur gourmande et réconfortante'
-      },
-      'Pitchoun': {
-        name: 'Pitchoun',
-        description: 'Senteur douce et tendre, parfait pour les petits chiens'
-      },
-      'Mimosa': {
-        name: 'Mimosa',
-        description: 'Senteur florale printanière et délicate'
-      },
-      'Pelluche': {
-        name: 'Pelluche',
-        description: 'Senteur douce et câline, comme un doudou parfumé'
-      },
-      'Pomme': {
-        name: 'Pomme',
-        description: 'Senteur fruitée et fraîche de pomme croquante'
-      },
-      'Scarlett': {
-        name: 'Scarlett',
-        description: 'Senteur élégante et sophistiquée'
-      },
-      'Lulu': {
-        name: 'Lulu',
-        description: 'Senteur joyeuse et pétillante'
-      }
-    }
+// Détection automatique de l'URL de l'API basée sur le domaine actuel
+const getApiUrl = () => {
+  // Si une variable d'environnement est définie, l'utiliser
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
-];
+  
+  // Sinon, détecter automatiquement basé sur le domaine actuel
+  const currentHost = window.location.hostname;
+  
+  if (currentHost === 'domainedesrevesbleus.eu' || currentHost === 'www.domainedesrevesbleus.eu') {
+    return 'https://domainedesrevesbleus.eu';
+  } else if (currentHost === 'domainedesrevesbleus.famillemntmata.eu') {
+    return 'https://domainedesrevesbleus.famillemntmata.eu';
+  } else if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+    return 'http://localhost:3002';
+  }
+  
+  // Par défaut
+  return 'https://domainedesrevesbleus.famillemntmata.eu';
+};
+
+const API_URL = getApiUrl();
 
 function Products() {
   const { addToCart } = useCart();
   const [selectedImage, setSelectedImage] = useState(null);
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Initialiser selectedVolumes avec des valeurs par défaut pour les produits avec volumes
-  const [selectedVolumes, setSelectedVolumes] = useState(() => {
-    const initialVolumes = {};
-    // Initialiser avec '250ml' pour tous les produits qui ont des volumes
-    allProducts.forEach(product => {
-      if (product.volumes) {
-        initialVolumes[product.id] = '250ml';
-      }
-    });
-    return initialVolumes;
-  });
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
-  // Initialiser selectedFragrances avec des valeurs par défaut pour les produits avec parfums
-  const [selectedFragrances, setSelectedFragrances] = useState(() => {
-    const initialFragrances = {};
-    // Initialiser avec le premier parfum pour tous les produits qui ont des parfums
-    allProducts.forEach(product => {
-      if (product.fragrances) {
-        const firstFragrance = Object.keys(product.fragrances)[0];
-        initialFragrances[product.id] = firstFragrance;
+  const fetchProducts = async () => {
+    // Créer un AbortController pour gérer le timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes
+    
+    try {
+      console.log('Récupération des produits depuis:', `${API_URL}/api/products`);
+      const response = await fetch(`${API_URL}/api/products`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      console.log('Réponse reçue:', response.status, response.statusText);
+      
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          console.log('Produits reçus:', data.length, 'produits');
+          
+          if (Array.isArray(data) && data.length > 0) {
+            // Convertir _id en id pour compatibilité
+            const productsWithId = data.map((product) => ({
+              ...product,
+              id: product._id
+            }));
+            setAllProducts(productsWithId);
+            setError(null); // Réinitialiser l'erreur en cas de succès
+            console.log('Produits chargés avec succès:', productsWithId.length);
+          } else {
+            console.warn('Aucun produit trouvé dans la réponse');
+            setAllProducts([]);
+            setError(null); // Pas d'erreur, juste aucun produit
+          }
+        } else {
+          console.error('Réponse non-JSON reçue:', contentType);
+          const text = await response.text();
+          console.error('Contenu de la réponse:', text.substring(0, 200));
+        }
+      } else {
+        // Gestion spécifique des erreurs HTTP
+        const errorText = await response.text().catch(() => 'Impossible de lire la réponse');
+        
+        // Détecter si c'est une page d'erreur Cloudflare (HTML)
+        const isCloudflareError = errorText.includes('Cloudflare') || errorText.includes('Bad gateway');
+        
+        if (response.status === 502) {
+          const errorMsg = isCloudflareError 
+            ? 'Le serveur backend n\'est pas accessible. Cloudflare ne peut pas joindre le serveur.'
+            : 'Le serveur backend n\'est pas accessible.';
+          console.error('❌ Erreur 502:', errorMsg);
+          setError(errorMsg);
+          if (isCloudflareError) {
+            console.error('⚠️  Le serveur backend doit être démarré et accessible depuis Cloudflare');
+          }
+          console.error('URL tentée:', `${API_URL}/api/products`);
+        } else if (response.status === 503) {
+          console.error('❌ Erreur 503: Service temporairement indisponible');
+          setError('Service temporairement indisponible. Veuillez réessayer dans quelques instants.');
+        } else if (response.status === 404) {
+          console.error('❌ Erreur 404: Route API non trouvée');
+          setError('Route API non trouvée. Vérifiez la configuration du serveur.');
+        } else {
+          console.error('Erreur HTTP:', response.status, response.statusText);
+          setError(`Erreur ${response.status}: ${response.statusText}`);
+        }
+        
+        if (!isCloudflareError) {
+          console.error('Détails de l\'erreur:', errorText.substring(0, 500));
+        }
       }
-    });
-    return initialFragrances;
-  });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        const errorMsg = 'Le serveur ne répond pas dans les temps (timeout 10s)';
+        console.error('❌ Timeout:', errorMsg);
+        setError(errorMsg);
+        console.error('Vérifiez que le serveur backend est démarré sur:', API_URL);
+      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        const errorMsg = 'Impossible de joindre le serveur. Vérifiez votre connexion.';
+        console.error('❌ Erreur de connexion:', errorMsg);
+        setError(errorMsg);
+        console.error('Vérifiez que le serveur backend est démarré et accessible sur:', API_URL);
+        console.error('Erreur complète:', error.message);
+      } else {
+        console.error('Erreur lors de la récupération des produits:', error);
+        setError('Une erreur inattendue s\'est produite.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [selectedVolumes, setSelectedVolumes] = useState({});
+  const [selectedFragrances, setSelectedFragrances] = useState({});
+  
+  // Initialiser selectedVolumes et selectedFragrances après le chargement des produits
+  useEffect(() => {
+    if (allProducts.length > 0) {
+      const initialVolumes = {};
+      const initialFragrances = {};
+      
+      allProducts.forEach((product) => {
+        if (product.volumes) {
+          const volumesObj = product.volumes instanceof Map 
+            ? Object.fromEntries(product.volumes)
+            : product.volumes;
+          if (Object.keys(volumesObj).length > 0) {
+            initialVolumes[product.id] = Object.keys(volumesObj)[0];
+          }
+        }
+        if (product.fragrances) {
+          const fragrancesObj = product.fragrances instanceof Map
+            ? Object.fromEntries(product.fragrances)
+            : product.fragrances;
+          if (Object.keys(fragrancesObj).length > 0) {
+            initialFragrances[product.id] = Object.keys(fragrancesObj)[0];
+          }
+        }
+      });
+      
+      setSelectedVolumes(initialVolumes);
+      setSelectedFragrances(initialFragrances);
+    }
+  }, [allProducts]);
 
   const categories = useMemo(() => {
     const uniqueCategories = new Set(allProducts.map(p => p.category));
@@ -306,12 +204,19 @@ function Products() {
 
     // Si le produit a des volumes et qu'un volume est sélectionné
     if (product.volumes && selectedVolume) {
-      finalPrice = product.volumes[selectedVolume];
-      finalName = `${product.name} (${selectedVolume})`;
+      // Convertir volumes en objet si c'est une Map
+      const volumesObj = product.volumes instanceof Map 
+        ? Object.fromEntries(product.volumes)
+        : product.volumes;
       
-      // Ajuster le poids selon le volume
-      if (selectedVolume === '1L') {
-        finalWeight = (product.weightGrams || 100) * 4; // 1L = 4x 250ml
+      if (volumesObj[selectedVolume]) {
+        finalPrice = volumesObj[selectedVolume];
+        finalName = `${product.name} (${selectedVolume})`;
+        
+        // Ajuster le poids selon le volume
+        if (selectedVolume === '1L') {
+          finalWeight = (product.weightGrams || 100) * 4; // 1L = 4x 250ml
+        }
       }
     }
 
@@ -333,10 +238,24 @@ function Products() {
 
   const getProductPrice = (product) => {
     if (product.volumes && selectedVolumes[product.id]) {
-      return product.volumes[selectedVolumes[product.id]];
+      const volumesObj = product.volumes instanceof Map 
+        ? Object.fromEntries(product.volumes)
+        : product.volumes;
+      return volumesObj[selectedVolumes[product.id]] || product.price;
     }
     return product.price;
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement des produits...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -387,11 +306,6 @@ function Products() {
                     alt={product.name}
                     className="w-full h-full object-cover cursor-pointer"
                     onClick={() => setSelectedImage(product.image)}
-                    onError={(e) => {
-                      // Utiliser une image de fallback si l'image principale échoue
-                      const fallbackIndex = product.id % fallbackImages.length;
-                      e.target.src = fallbackImages[fallbackIndex];
-                    }}
                     loading="lazy"
                   />
                   {product.isNew && (
@@ -404,6 +318,14 @@ function Products() {
                       <div className="text-white text-center">
                         <div className="text-sm font-medium">Image en attente</div>
                         <div className="text-xs opacity-75">Bientôt disponible</div>
+                      </div>
+                    </div>
+                  )}
+                  {product.stock === 0 && (
+                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                      <div className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                        <FaExclamationTriangle />
+                        <span className="font-medium">Rupture de stock</span>
                       </div>
                     </div>
                   )}
@@ -474,10 +396,15 @@ function Products() {
                     </div>
                     <button
                       onClick={() => handleAddToCart(product)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                      disabled={product.stock === 0}
+                      className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                        product.stock === 0
+                          ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                     >
                       <FaShoppingCart className="w-4 h-4" />
-                      <span>Ajouter</span>
+                      <span>{product.stock === 0 ? 'Rupture' : 'Ajouter'}</span>
                     </button>
                   </div>
                 </div>
@@ -486,8 +413,36 @@ function Products() {
           </AnimatePresence>
         </div>
 
-        {/* Message si aucun produit trouvé */}
-        {filteredProducts.length === 0 && (
+        {/* Message d'erreur de connexion */}
+        {error && (
+          <div className="text-center py-12 px-4">
+            <FaExclamationTriangle className="mx-auto text-red-500 text-4xl mb-4" />
+            <p className="text-red-600 text-lg font-semibold mb-2">
+              Erreur de connexion
+            </p>
+            <p className="text-gray-600 text-sm mb-4">
+              {error}
+            </p>
+            <p className="text-gray-500 text-xs">
+              Le serveur backend n'est pas accessible. Veuillez contacter l'administrateur.
+            </p>
+          </div>
+        )}
+
+        {/* Message si aucun produit trouvé (sans erreur) */}
+        {!loading && !error && filteredProducts.length === 0 && allProducts.length === 0 && (
+          <div className="text-center py-12">
+            <FaExclamationTriangle className="mx-auto text-yellow-500 text-4xl mb-4" />
+            <p className="text-gray-500 text-lg mb-2">
+              Aucun produit disponible pour le moment.
+            </p>
+            <p className="text-gray-400 text-sm mb-4">
+              Les produits seront bientôt disponibles.
+            </p>
+          </div>
+        )}
+        
+        {!loading && filteredProducts.length === 0 && allProducts.length > 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">
               Aucun produit trouvé dans cette catégorie.

@@ -14,6 +14,10 @@ import authRoutes from './routes/auth.js';
 import createPaymentRoutes from './routes/payment.js';
 import cartRoutes from './routes/cart.js';
 import userRoutes from './routes/user.js';
+import adminRoutes from './routes/admin.js';
+import productRoutes from './routes/products.js';
+import Order from './models/Order.js';
+import Cart from './models/Cart.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -133,12 +137,76 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
   switch (event.type) {
     case 'payment_intent.succeeded':
       const paymentIntentSucceeded = event.data.object;
-      const paymentIntentId = paymentIntentSucceeded.id; // Récupérer l'ID pour les logs
+      const paymentIntentId = paymentIntentSucceeded.id;
+      const userId = paymentIntentSucceeded.metadata?.userId;
       console.log(`[Webhook] Démarrage traitement pour payment_intent.succeeded: ${paymentIntentId}`);
 
       try {
-        // --- ICI : Votre logique métier ---
-        console.log(`[Webhook] Logique pour ${paymentIntentId}: Mettre à jour BDD, envoyer email, etc.`);
+        // Vérifier si une commande existe déjà pour éviter les doublons
+        const existingOrder = await Order.findOne({ paymentIntentId });
+        if (existingOrder) {
+          console.log(`[Webhook] Commande déjà existante pour ${paymentIntentId}`);
+          break;
+        }
+
+        if (!userId) {
+          console.error(`[Webhook] userId manquant dans les metadata pour ${paymentIntentId}`);
+          break;
+        }
+
+        // Récupérer le panier de l'utilisateur
+        const cart = await Cart.findOne({ user: userId });
+        if (!cart || !cart.items || cart.items.length === 0) {
+          console.error(`[Webhook] Panier vide ou introuvable pour l'utilisateur ${userId}`);
+          break;
+        }
+
+        // Calculer le montant total
+        const totalAmount = paymentIntentSucceeded.amount / 100; // Stripe utilise les centimes
+        const shippingCost = parseFloat(paymentIntentSucceeded.metadata?.shippingCost || '0');
+
+        // Récupérer les informations de livraison depuis les metadata
+        const shippingAddress = {
+          firstName: paymentIntentSucceeded.metadata?.firstName || '',
+          lastName: paymentIntentSucceeded.metadata?.lastName || '',
+          email: paymentIntentSucceeded.metadata?.email || '',
+          phone: paymentIntentSucceeded.metadata?.phone || '',
+          address: paymentIntentSucceeded.metadata?.address || '',
+          city: paymentIntentSucceeded.metadata?.city || '',
+          postalCode: paymentIntentSucceeded.metadata?.postalCode || '',
+          country: paymentIntentSucceeded.metadata?.country || 'France'
+        };
+
+        // Convertir les items du panier en items de commande
+        const orderItems = cart.items.map(item => ({
+          productId: null, // On garde null pour l'instant car les produits ne sont pas encore dans la DB
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image,
+          volume: item.volume || null,
+          fragrance: item.fragrance || null,
+          weightGrams: item.weightGrams || 100
+        }));
+
+        // Créer la commande
+        const order = await Order.create({
+          user: userId,
+          paymentIntentId,
+          items: orderItems,
+          totalAmount,
+          shippingCost,
+          shippingAddress,
+          status: 'paid',
+          paymentStatus: 'succeeded'
+        });
+
+        console.log(`[Webhook] Commande créée avec succès: ${order._id} pour ${paymentIntentId}`);
+
+        // Vider le panier après création de la commande
+        cart.items = [];
+        await cart.save();
+        console.log(`[Webhook] Panier vidé pour l'utilisateur ${userId}`);
 
         console.log(`[Webhook] Traitement terminé avec succès pour payment_intent.succeeded: ${paymentIntentId}`);
 
@@ -246,17 +314,113 @@ app.get('/api/get-payment-status',
   }
 );
 
-// 3. Gestion des erreurs sécurisée (Gestionnaire d'erreurs générique)
-app.use((err, req, res, next) => {
-  console.error("Erreur non gérée:", err.stack || err);
-  res.status(500).send({ error: 'Une erreur interne est survenue.' });
+// Routes pour SEO (AVANT le gestionnaire d'erreurs)
+// Route pour servir le sitemap.xml (pour Google Search Console)
+app.get('/sitemap.xml', (req, res) => {
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://domainedesrevesbleus.eu/</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/products</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/services</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/contact</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/metion-legale</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/cgv</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/politique-de-confidentialite</loc>
+    <lastmod>2025-12-20</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>`;
+  
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.status(200).send(sitemap);
 });
 
-// Routes
+// Route pour servir robots.txt
+app.get('/robots.txt', (req, res) => {
+  const robots = `# robots.txt pour Les Rêves Bleus - Toilettage Canin
+# https://domainedesrevesbleus.eu
+
+User-agent: *
+Allow: /
+Allow: /products
+Allow: /services
+Allow: /contact
+Allow: /metion-legale
+Allow: /cgv
+Allow: /politique-de-confidentialite
+
+# Pages privées à ne pas indexer
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+Disallow: /profile
+Disallow: /checkout
+Disallow: /order-confirmation
+Disallow: /admin-panel
+Disallow: /admin-panel/
+
+# API et ressources techniques
+Disallow: /api/
+Disallow: /assets/
+
+# Sitemap
+Sitemap: https://domainedesrevesbleus.eu/sitemap.xml
+
+# Crawl-delay (optionnel, pour éviter de surcharger le serveur)
+Crawl-delay: 1
+`;
+  
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.status(200).send(robots);
+});
+
+// Routes API
 app.use('/api/auth', authRoutes);
 app.use('/api/payment', createPaymentRoutes(stripe));
 app.use('/api/cart', cartRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/products', productRoutes);
+
+// Gestionnaire d'erreurs (DOIT être en dernier)
+app.use((err, req, res, next) => {
+  console.error("Erreur non gérée:", err.stack || err);
+  res.status(500).send({ error: 'Une erreur interne est survenue.' });
+});
 
 // Démarrer le serveur
 app.listen(PORT, () => {

@@ -11,16 +11,18 @@ const EMAILJS_TEMPLATE_ID_ORDER_CONFIRMATION = import.meta.env.VITE_EMAILJS_TEMP
 const EMAILJS_TEMPLATE_ID_CONTACT = import.meta.env.VITE_EMAILJS_TEMPLATE_ID_CONTACT || 'YOUR_CONTACT_TEMPLATE_ID';
 const EMAILJS_PUBLIC_KEY_2 = import.meta.env.VITE_EMAILJS_PUBLIC_KEY_2 || 'YOUR_PUBLIC_KEY_2';
 
-// Debug: Vérifier les variables d'environnement
-console.log('EmailJS Configuration:', {
-  SERVICE_ID: EMAILJS_SERVICE_ID,
-  TEMPLATE_FORGOT_PASSWORD: EMAILJS_TEMPLATE_ID_FORGOT_PASSWORD,
-  PUBLIC_KEY: EMAILJS_PUBLIC_KEY ? 'Défini' : 'Manquant',
-  SERVICE_ID_2: EMAILJS_SERVICE_ID_2,
-  TEMPLATE_ORDER: EMAILJS_TEMPLATE_ID_ORDER_CONFIRMATION,
-  TEMPLATE_CONTACT: EMAILJS_TEMPLATE_ID_CONTACT,
-  PUBLIC_KEY_2: EMAILJS_PUBLIC_KEY_2 ? 'Défini' : 'Manquant'
-});
+// Debug: Vérifier les variables d'environnement (uniquement en développement)
+if (import.meta.env.DEV) {
+  console.log('EmailJS Configuration:', {
+    SERVICE_ID: EMAILJS_SERVICE_ID,
+    TEMPLATE_FORGOT_PASSWORD: EMAILJS_TEMPLATE_ID_FORGOT_PASSWORD,
+    PUBLIC_KEY: EMAILJS_PUBLIC_KEY ? 'Défini' : 'Manquant',
+    SERVICE_ID_2: EMAILJS_SERVICE_ID_2,
+    TEMPLATE_ORDER: EMAILJS_TEMPLATE_ID_ORDER_CONFIRMATION,
+    TEMPLATE_CONTACT: EMAILJS_TEMPLATE_ID_CONTACT,
+    PUBLIC_KEY_2: EMAILJS_PUBLIC_KEY_2 ? 'Défini' : 'Manquant'
+  });
+}
 
 export interface ForgotPasswordEmailData {
   to_email: string;
@@ -79,13 +81,16 @@ export const sendForgotPasswordEmail = async (data: ForgotPasswordEmailData): Pr
       email: data.to_email.trim(),
     };
 
-    console.log('Envoi email forgot password:', {
-      serviceId: EMAILJS_SERVICE_ID,
-      templateId: EMAILJS_TEMPLATE_ID_FORGOT_PASSWORD,
-      publicKey: EMAILJS_PUBLIC_KEY ? 'Défini' : 'Manquant',
-      to_email: data.to_email,
-      params: { ...templateParams, reset_link: '***' }
-    });
+    // Log uniquement en développement
+    if (import.meta.env.DEV) {
+      console.log('Envoi email forgot password:', {
+        serviceId: EMAILJS_SERVICE_ID,
+        templateId: EMAILJS_TEMPLATE_ID_FORGOT_PASSWORD,
+        publicKey: EMAILJS_PUBLIC_KEY ? 'Défini' : 'Manquant',
+        to_email: data.to_email,
+        params: { ...templateParams, reset_link: '***' }
+      });
+    }
 
     emailjs.init(EMAILJS_PUBLIC_KEY);
     const response = await emailjs.send(
@@ -94,7 +99,9 @@ export const sendForgotPasswordEmail = async (data: ForgotPasswordEmailData): Pr
       templateParams
     );
 
-    console.log('Email de réinitialisation envoyé:', response);
+    if (import.meta.env.DEV) {
+      console.log('Email de réinitialisation envoyé:', response);
+    }
     return { success: true, message: checkResult.message };
   } catch (error: any) {
     console.error('Erreur lors de l\'envoi de l\'email de réinitialisation:', error);
@@ -125,13 +132,16 @@ export const sendOrderConfirmationEmail = async (data: OrderConfirmationEmailDat
       email: data.to_email.trim(),
     };
 
-    console.log('Envoi email order confirmation:', {
-      serviceId: EMAILJS_SERVICE_ID_2,
-      templateId: EMAILJS_TEMPLATE_ID_ORDER_CONFIRMATION,
-      publicKey: EMAILJS_PUBLIC_KEY_2 ? 'Défini' : 'Manquant',
-      to_email: data.to_email,
-      params: templateParams
-    });
+    // Log uniquement en développement
+    if (import.meta.env.DEV) {
+      console.log('Envoi email order confirmation:', {
+        serviceId: EMAILJS_SERVICE_ID_2,
+        templateId: EMAILJS_TEMPLATE_ID_ORDER_CONFIRMATION,
+        publicKey: EMAILJS_PUBLIC_KEY_2 ? 'Défini' : 'Manquant',
+        to_email: data.to_email,
+        params: templateParams
+      });
+    }
 
     emailjs.init(EMAILJS_PUBLIC_KEY_2);
     const response = await emailjs.send(
@@ -140,7 +150,9 @@ export const sendOrderConfirmationEmail = async (data: OrderConfirmationEmailDat
       templateParams
     );
 
-    console.log('Email de confirmation de commande envoyé:', response);
+    if (import.meta.env.DEV) {
+      console.log('Email de confirmation de commande envoyé:', response);
+    }
     return true;
   } catch (error: any) {
     console.error('Erreur lors de l\'envoi de l\'email de confirmation:', error);
@@ -161,12 +173,15 @@ export const sendContactEmail = async (data: ContactEmailData): Promise<{ succes
       message: data.message,
     };
 
-    console.log('Envoi email contact:', {
-      serviceId: EMAILJS_SERVICE_ID_2,
-      templateId: EMAILJS_TEMPLATE_ID_CONTACT,
-      publicKey: EMAILJS_PUBLIC_KEY_2 ? 'Défini' : 'Manquant',
-      params: templateParams
-    });
+    // Log uniquement en développement
+    if (import.meta.env.DEV) {
+      console.log('Envoi email contact:', {
+        serviceId: EMAILJS_SERVICE_ID_2,
+        templateId: EMAILJS_TEMPLATE_ID_CONTACT,
+        publicKey: EMAILJS_PUBLIC_KEY_2 ? 'Défini' : 'Manquant',
+        params: templateParams
+      });
+    }
 
     emailjs.init(EMAILJS_PUBLIC_KEY_2);
     const response = await emailjs.send(
@@ -175,7 +190,9 @@ export const sendContactEmail = async (data: ContactEmailData): Promise<{ succes
       templateParams
     );
 
-    console.log('Email de contact envoyé:', response);
+    if (import.meta.env.DEV) {
+      console.log('Email de contact envoyé:', response);
+    }
     return { success: true, message: 'Votre message a été envoyé avec succès !' };
   } catch (error: any) {
     console.error('Erreur lors de l\'envoi de l\'email de contact:', error);
