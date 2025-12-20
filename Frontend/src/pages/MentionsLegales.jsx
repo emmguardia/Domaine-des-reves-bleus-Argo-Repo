@@ -43,7 +43,7 @@ function MentionsLegales() {
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">3. Hébergement</h2>
               <ul className="space-y-2 text-gray-600">
                 <li><strong>Hébergeur :</strong> Monnet Mata Enzo</li>
-                <li><strong>Adresse :</strong> 545 chemin des vignerons, 69830 St Georges de Reneins, France</li>
+                <li><strong>Adresse :</strong>69830 St Georges de Reneins, France</li>
                 <li><strong>Téléphone :</strong> 06 17 06 31 44</li>
                 <li><strong>Email :</strong> enzo.mnt.mata@gmail.com</li>
                 <li><strong>Site web :</strong> www.zenixweb.fr</li>
