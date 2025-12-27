@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: domaine-des-reves-bleus-frontend
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: domaine-des-reves-bleus-frontend
+  template:
+    metadata:
+      labels:
+        app: domaine-des-reves-bleus-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: frontend-files
+          mountPath: /usr/share/nginx/html
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+      volumes:
+      - name: frontend-files
+        persistentVolumeClaim:
+          claimName: domaine-des-reves-bleus-frontend-pvc
+      - name: nginx-config
+        configMap:
+          name: domaine-des-reves-bleus-nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: domaine-des-reves-bleus-frontend-service
+  namespace: default
+spec:
+  selector:
+    app: domaine-des-reves-bleus-frontend
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: domaine-des-reves-bleus-frontend-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: domaine-des-reves-bleus-nginx-config
+  namespace: default
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        location ~* \.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot)$ {
+            expires 7d;
+            add_header Cache-Control "public, max-age=604800";
+        }
+
+        gzip on;
+        gzip_vary on;
+        gzip_min_length 1024;
+        gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+    }
+
