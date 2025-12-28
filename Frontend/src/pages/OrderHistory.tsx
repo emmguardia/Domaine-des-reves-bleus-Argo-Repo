@@ -3,14 +3,12 @@ import { getApiUrl } from '../utils/security';
 import { secureStorage } from '../utils/security';
 import { logger } from '../utils/logger';
 import { FaBox, FaTruck, FaCheckCircle, FaTimesCircle, FaClock } from 'react-icons/fa';
-
 interface OrderItem {
   name: string;
   price: number;
   quantity: number;
   image: string;
 }
-
 interface Order {
   _id: number;
   paymentIntentId: string;
@@ -31,16 +29,13 @@ interface Order {
   createdAt: string;
   shippedAt?: string;
 }
-
 function OrderHistory() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     fetchOrders();
   }, []);
-
   const fetchOrders = async () => {
     try {
       const token = secureStorage.getItem('token');
@@ -49,13 +44,11 @@ function OrderHistory() {
         setLoading(false);
         return;
       }
-
       const response = await fetch(`${getApiUrl()}/api/user/orders`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const data = await response.json();
         setOrders(data);
@@ -69,7 +62,6 @@ function OrderHistory() {
       setLoading(false);
     }
   };
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'delivered':
@@ -82,7 +74,6 @@ function OrderHistory() {
         return <FaClock className="text-yellow-500" />;
     }
   };
-
   const getStatusLabel = (status: string) => {
     const labels: { [key: string]: string } = {
       pending: 'En attente',
@@ -94,7 +85,6 @@ function OrderHistory() {
     };
     return labels[status] || status;
   };
-
   if (loading) {
     return (
       <div className="pt-24 pb-12 min-h-screen bg-gray-50 flex items-center justify-center">
@@ -102,7 +92,6 @@ function OrderHistory() {
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="pt-24 pb-12 min-h-screen bg-gray-50">
@@ -114,12 +103,10 @@ function OrderHistory() {
       </div>
     );
   }
-
   return (
     <div className="pt-24 pb-12 min-h-screen bg-gray-50">
       <div className="container mx-auto px-6 max-w-4xl">
         <h1 className="text-3xl font-bold mb-8 text-gray-800">Historique des commandes</h1>
-
         {orders.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
             <FaBox className="text-6xl text-gray-400 mx-auto mb-4" />
@@ -152,7 +139,6 @@ function OrderHistory() {
                     </span>
                   </div>
                 </div>
-
                 <div className="border-t pt-4 mb-4">
                   <h4 className="font-medium text-gray-700 mb-2">Articles:</h4>
                   <div className="space-y-2">
@@ -176,7 +162,6 @@ function OrderHistory() {
                     ))}
                   </div>
                 </div>
-
                 <div className="border-t pt-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-gray-600">Frais de port:</span>
@@ -189,7 +174,6 @@ function OrderHistory() {
                     </span>
                   </div>
                 </div>
-
                 {order.shippingAddress && (
                   <div className="border-t pt-4 mt-4">
                     <h4 className="font-medium text-gray-700 mb-2">Adresse de livraison:</h4>
@@ -210,6 +194,4 @@ function OrderHistory() {
     </div>
   );
 }
-
 export default OrderHistory;
-

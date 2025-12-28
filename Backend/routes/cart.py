@@ -78,7 +78,7 @@ async def update_cart(
             db.commit()
             db.refresh(cart)
         
-        # Supprimer les anciens items
+        
         db.query(CartItem).filter(CartItem.cart_id == cart.id).delete()
         
         for item_data in request.items:

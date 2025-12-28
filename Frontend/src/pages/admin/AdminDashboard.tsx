@@ -4,16 +4,13 @@ import { FaBox, FaShoppingCart, FaExclamationTriangle, FaEuroSign } from 'react-
 import { getApiUrl } from '../../utils/security';
 import { secureStorage } from '../../utils/security';
 import { logger } from '../../utils/logger';
-
 function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const API_URL = getApiUrl();
-
   useEffect(() => {
     fetchStats();
   }, []);
-
   const fetchStats = async () => {
     try {
       const token = secureStorage.getItem('adminToken');
@@ -22,7 +19,6 @@ function AdminDashboard() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -40,7 +36,6 @@ function AdminDashboard() {
       setLoading(false);
     }
   };
-
   if (loading) {
     return (
       <div className="p-8">
@@ -50,7 +45,6 @@ function AdminDashboard() {
       </div>
     );
   }
-
   const statCards = [
     {
       title: 'Total Produits',
@@ -77,7 +71,6 @@ function AdminDashboard() {
       color: 'bg-green-500',
     },
   ];
-
   return (
     <div className="p-8">
       <motion.div
@@ -88,7 +81,6 @@ function AdminDashboard() {
         <h1 className="text-3xl font-bold text-gray-900">Tableau de bord</h1>
         <p className="text-gray-600 mt-2">Vue d'ensemble de votre boutique</p>
       </motion.div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {statCards.map((card, index) => {
           const Icon = card.icon;
@@ -113,7 +105,6 @@ function AdminDashboard() {
           );
         })}
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -142,7 +133,6 @@ function AdminDashboard() {
             </div>
           </div>
         </motion.div>
-
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -168,6 +158,4 @@ function AdminDashboard() {
     </div>
   );
 }
-
 export default AdminDashboard;
-

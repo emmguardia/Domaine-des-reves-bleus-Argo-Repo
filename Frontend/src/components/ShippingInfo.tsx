@@ -1,11 +1,9 @@
 import React from 'react';
 import { FaTruck, FaMapMarkerAlt, FaClock } from 'react-icons/fa';
-
 interface ShippingInfoProps {
   shippingCalculation: any | null;
   isCalculating: boolean;
 }
-
 const ShippingInfo: React.FC<ShippingInfoProps> = ({ shippingCalculation, isCalculating }) => {
   if (isCalculating) {
     return (
@@ -17,7 +15,6 @@ const ShippingInfo: React.FC<ShippingInfoProps> = ({ shippingCalculation, isCalc
       </div>
     );
   }
-
   if (!shippingCalculation) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
@@ -28,7 +25,6 @@ const ShippingInfo: React.FC<ShippingInfoProps> = ({ shippingCalculation, isCalc
       </div>
     );
   }
-
   return (
     <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
       <div className="space-y-2">
@@ -36,7 +32,6 @@ const ShippingInfo: React.FC<ShippingInfoProps> = ({ shippingCalculation, isCalc
           <FaTruck />
           <span className="font-medium">Frais de port calculés</span>
         </div>
-        
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center space-x-2">
             <FaMapMarkerAlt className="text-gray-500" />
@@ -44,7 +39,6 @@ const ShippingInfo: React.FC<ShippingInfoProps> = ({ shippingCalculation, isCalc
               Distance: <span className="font-medium">{shippingCalculation.distanceKm} km</span>
             </span>
           </div>
-          
           <div className="flex items-center space-x-2">
             <FaClock className="text-gray-500" />
             <span className="text-gray-600">
@@ -52,7 +46,6 @@ const ShippingInfo: React.FC<ShippingInfoProps> = ({ shippingCalculation, isCalc
             </span>
           </div>
         </div>
-        
         <div className="pt-2 border-t border-green-200">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Expédition depuis :</span>
@@ -63,5 +56,4 @@ const ShippingInfo: React.FC<ShippingInfoProps> = ({ shippingCalculation, isCalc
     </div>
   );
 };
-
 export default ShippingInfo;

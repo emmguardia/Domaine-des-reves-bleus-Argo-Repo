@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-
 const CGV: React.FC = () => {
   return (
     <main className="pt-24 pb-12">
@@ -13,7 +12,6 @@ const CGV: React.FC = () => {
           <h1 className="text-4xl font-bold text-gray-800 mb-8">
             Conditions Générales de Vente (CGV)
           </h1>
-          
           <div className="space-y-8 text-gray-700">
             <div className="bg-gray-50 p-6 rounded-lg">
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">Entreprise</h2>
@@ -25,7 +23,6 @@ const CGV: React.FC = () => {
                 <li><strong>Représentant légal :</strong> Melozay Laurence</li>
               </ul>
             </div>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">1. Objet</h2>
               <p className="text-gray-600 leading-relaxed">
@@ -34,7 +31,6 @@ const CGV: React.FC = () => {
                 chien et matériel de toilettage et service de toilettage pour les chiens.
               </p>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">2. Produits et services</h2>
               <ul className="space-y-2 text-gray-600">
@@ -43,7 +39,6 @@ const CGV: React.FC = () => {
                 <li><strong>Photos et illustrations (si boutique en ligne) :</strong> Les visuels sont donnés à titre indicatif.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">3. Commandes</h2>
               <ul className="space-y-2 text-gray-600">
@@ -52,7 +47,6 @@ const CGV: React.FC = () => {
                 <li>L'entreprise se réserve le droit de refuser toute commande en cas de litige, défaut de paiement, stock épuisé...</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">4. Réservations</h2>
               <ul className="space-y-2 text-gray-600">
@@ -61,7 +55,6 @@ const CGV: React.FC = () => {
                 <li><strong>Conditions d'annulation :</strong> Gratuite jusqu'à 24h avant l'expédition.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">5. Tarifs et modalités de paiement</h2>
               <ul className="space-y-2 text-gray-600">
@@ -71,7 +64,6 @@ const CGV: React.FC = () => {
                 <li><strong>Possibilité de paiement en plusieurs fois :</strong> Paiement en plusieurs fois refusé</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">6. Livraison</h2>
               <ul className="space-y-2 text-gray-600">
@@ -81,7 +73,6 @@ const CGV: React.FC = () => {
                 <li><strong>Réception :</strong> Le client doit vérifier la marchandise à la livraison et signaler toute anomalie immédiatement.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">7. Obligations du client</h2>
               <p className="text-gray-600 mb-2">Le client s'engage à :</p>
@@ -91,7 +82,6 @@ const CGV: React.FC = () => {
                 <li>Respecter les conditions spécifiques liées au service réservé (ponctualité pour un rendez-vous).</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">8. Obligations du prestataire</h2>
               <p className="text-gray-600 mb-2">L'entreprise s'engage à :</p>
@@ -101,7 +91,6 @@ const CGV: React.FC = () => {
                 <li>Garantir la qualité et la conformité des produits/services.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">10. Annulation et remboursement</h2>
               <ul className="space-y-2 text-gray-600">
@@ -110,7 +99,6 @@ const CGV: React.FC = () => {
                 <li><strong>Produits physiques :</strong> Remboursements sous 15 jours après retour du produit dans son état d'origine.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">11. Propriété et garanties</h2>
               <ul className="space-y-2 text-gray-600">
@@ -118,7 +106,6 @@ const CGV: React.FC = () => {
                 <li><strong>Garantie légale :</strong> Conformément aux articles L.217-4 et suivants du Code de la consommation.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">12. Données personnelles</h2>
               <p className="text-gray-600 leading-relaxed">
@@ -126,7 +113,6 @@ const CGV: React.FC = () => {
                 ne seront pas transmises à des tiers sans consentement du client.
               </p>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">13. Litiges et droit applicable</h2>
               <p className="text-gray-600 leading-relaxed mb-2">
@@ -145,6 +131,4 @@ const CGV: React.FC = () => {
     </main>
   );
 };
-
 export default CGV;
-

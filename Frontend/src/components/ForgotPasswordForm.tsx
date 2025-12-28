@@ -2,29 +2,24 @@ import React, { useState } from 'react';
 import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { sendForgotPasswordEmail } from '../services/emailService';
 import { logger } from '../utils/logger';
-
 interface ForgotPasswordFormProps {
   onBack: () => void;
 }
-
 const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage('');
-
     try {
       const result = await sendForgotPasswordEmail({
         to_email: email,
-        to_name: email.split('@')[0], // Utiliser la partie avant @ comme nom
-        reset_link: '', // Sera généré par le backend
+        to_name: email.split('@')[0], 
+        reset_link: '', 
       });
-
       if (result.success) {
         setIsSuccess(true);
         setMessage(result.message);
@@ -39,7 +34,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
       setIsLoading(false);
     }
   };
-
   if (isSuccess && message.includes('envoyé')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 px-4">
@@ -66,7 +60,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
@@ -81,7 +74,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
             Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
           </p>
         </div>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -97,7 +89,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
               placeholder="votre@email.com"
             />
           </div>
-
           {message && (
             <div className={`flex items-center p-4 rounded-lg ${
               isSuccess ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
@@ -110,7 +101,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
               <span className="text-sm">{message}</span>
             </div>
           )}
-
           <div className="space-y-4">
             <button
               type="submit"
@@ -129,7 +119,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
                 </>
               )}
             </button>
-
             <button
               type="button"
               onClick={onBack}
@@ -144,5 +133,4 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
     </div>
   );
 };
-
 export default ForgotPasswordForm;

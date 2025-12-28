@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { searchAddresses, AddressSuggestion } from '../services/addressService';
-
 interface AddressAutocompleteProps {
   value: string;
   onChange: (address: string) => void;
@@ -9,7 +8,6 @@ interface AddressAutocompleteProps {
   disabled?: boolean;
   onSelect?: (suggestion: AddressSuggestion) => void;
 }
-
 const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   value,
   onChange,
@@ -22,20 +20,15 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
-
   const searchAddressesDebounced = async (query: string) => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
-
     debounceRef.current = setTimeout(async () => {
-      // Nettoyer la requête avant de vérifier la longueur
       const cleanedQuery = query.trim();
-      
       if (cleanedQuery.length >= 3) {
         setIsLoading(true);
         try {
@@ -43,7 +36,6 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           setSuggestions(results);
           setIsOpen(results.length > 0);
         } catch (error) {
-          // Les erreurs sont déjà gérées dans searchAddresses, on ne fait que vider les suggestions
           setSuggestions([]);
           setIsOpen(false);
         } finally {
@@ -55,7 +47,6 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
       }
     }, 300);
   };
-
   useEffect(() => {
     if (value) {
       searchAddressesDebounced(value);
@@ -64,7 +55,6 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
       setIsOpen(false);
     }
   }, [value]);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -77,14 +67,11 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         setSelectedIndex(-1);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen || suggestions.length === 0) return;
-
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
@@ -108,23 +95,19 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         break;
     }
   };
-
   const handleSelectSuggestion = (suggestion: AddressSuggestion) => {
     onChange(suggestion.value);
     setIsOpen(false);
     setSelectedIndex(-1);
-    
     if (onSelect) {
       onSelect(suggestion);
     }
   };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     onChange(newValue);
     setSelectedIndex(-1);
   };
-
   return (
     <div className="relative">
       <input
@@ -145,14 +128,12 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         }`}
         autoComplete="off"
       />
-      
       {}
       {isLoading && (
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
         </div>
       )}
-
       {}
       {isOpen && suggestions.length > 0 && (
         <div
@@ -178,7 +159,6 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           ))}
         </div>
       )}
-
       {}
       {isOpen && suggestions.length === 0 && !isLoading && value.length >= 3 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
@@ -190,5 +170,4 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     </div>
   );
 };
-
 export default AddressAutocomplete;

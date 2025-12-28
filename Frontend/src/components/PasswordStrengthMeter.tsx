@@ -1,16 +1,12 @@
 import React from 'react';
 import { calculatePasswordStrength } from '../utils/passwordStrength';
-
 interface PasswordStrengthMeterProps {
   password: string;
 }
-
 export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({ password }) => {
   if (!password) return null;
-
   const strength = calculatePasswordStrength(password);
   const percentage = (strength.score / 6) * 100;
-
   return (
     <div className="mt-2">
       <div className="flex items-center gap-2 mb-1">
@@ -32,4 +28,3 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({ pa
     </div>
   );
 };
-

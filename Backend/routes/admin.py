@@ -21,8 +21,8 @@ security = HTTPBearer()
 JWT_SECRET = os.getenv("JWT_SECRET")
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Vérifie un mot de passe contre un hash bcrypt"""
-    # Tronquer à 72 bytes (limite de bcrypt)
+    
+    
     password_bytes = password.encode('utf-8')[:72]
     password_truncated = password_bytes.decode('utf-8', errors='ignore')
     try:
@@ -264,7 +264,10 @@ async def get_stats(admin: Admin = Depends(verify_admin_token), db: Session = De
     }
 
 @router.get("/stats/advanced")
-async def get_advanced_stats(admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):
+async def get_advanced_stats(period: int = 7, admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):
+    if period < 3:
+        period = 3
+    
     now = datetime.utcnow()
     last_7_days = now - timedelta(days=7)
     last_30_days = now - timedelta(days=30)
@@ -288,8 +291,8 @@ async def get_advanced_stats(admin: Admin = Depends(verify_admin_token), db: Ses
     ).scalar() or 0
     
     daily_revenue = []
-    for i in range(7):
-        day_start = now - timedelta(days=6-i)
+    for i in range(period):
+        day_start = now - timedelta(days=period-1-i)
         day_end = day_start + timedelta(days=1)
         day_revenue = db.query(func.sum(Order.total_amount)).filter(
             Order.payment_status == PaymentStatus.SUCCEEDED,

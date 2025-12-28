@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaDog } from 'react-icons/fa';
-
 const Footer: React.FC = () => {
   return (
     <footer className="bg-gray-700 py-12">
@@ -16,7 +15,6 @@ const Footer: React.FC = () => {
               L'excellence pour votre compagnon à quatre pattes
             </p>
           </div>
-          
           <div>
             <h3 className="font-semibold text-white mb-4">Navigation</h3>
             <ul className="space-y-2">
@@ -25,7 +23,6 @@ const Footer: React.FC = () => {
               <li><Link to="/contact" className="text-gray-300 hover:text-primary">Contact</Link></li>
             </ul>
           </div>
-          
           <div>
             <h3 className="font-semibold text-white mb-4">Horaires</h3>
             <ul className="space-y-2 text-gray-300">
@@ -34,7 +31,6 @@ const Footer: React.FC = () => {
               <li>Samedi et Dimanche: Fermé</li>
             </ul>
           </div>
-          
           <div>
             <h3 className="font-semibold text-white mb-4">Contact</h3>
             <ul className="space-y-2 text-gray-300">
@@ -44,7 +40,6 @@ const Footer: React.FC = () => {
             </ul>
           </div>
         </div>
-        
         <div className="border-t border-gray-600 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400">
             <p>© 2024 Le Domaine des Rêves Bleus - Tous droits réservés</p>
@@ -55,12 +50,11 @@ const Footer: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 text-center text-gray-500 text-sm">
-            <p>Site réalisé par <a href="https://www.zenixweb.fr" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">zenixweb.fr</a></p>
+            <p>Site réalisé par <a href="https:
           </div>
         </div>
       </div>
     </footer>
   );
 };
-
 export default Footer;

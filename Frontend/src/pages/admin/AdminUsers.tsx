@@ -4,7 +4,6 @@ import { FaTrash, FaUser } from 'react-icons/fa';
 import { getApiUrl } from '../../utils/security';
 import { secureStorage } from '../../utils/security';
 import { logger } from '../../utils/logger';
-
 interface User {
   id: number;
   firstName: string;
@@ -15,18 +14,14 @@ interface User {
   createdAt: string;
   ordersCount: number;
 }
-
 function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
   const API_URL = getApiUrl();
-
   useEffect(() => {
     fetchUsers();
   }, []);
-
   const fetchUsers = async () => {
     try {
       const token = secureStorage.getItem('adminToken');
@@ -35,7 +30,6 @@ function AdminUsers() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
@@ -46,10 +40,8 @@ function AdminUsers() {
       setLoading(false);
     }
   };
-
   const handleDelete = async (id: number) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
-
     try {
       const token = secureStorage.getItem('adminToken');
       const response = await fetch(`${API_URL}/api/admin/users/${id}`, {
@@ -58,7 +50,6 @@ function AdminUsers() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         fetchUsers();
       } else {
@@ -69,7 +60,6 @@ function AdminUsers() {
       logger.error('Erreur:', error);
     }
   };
-
   if (loading) {
     return (
       <div className="p-8">
@@ -79,11 +69,9 @@ function AdminUsers() {
       </div>
     );
   }
-
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Gestion des utilisateurs</h1>
-
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50">
@@ -137,6 +125,4 @@ function AdminUsers() {
     </div>
   );
 }
-
 export default AdminUsers;
-

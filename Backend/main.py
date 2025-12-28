@@ -27,7 +27,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Créer les tables si elles n'existent pas
+    
     Base.metadata.create_all(bind=engine)
     
     try:

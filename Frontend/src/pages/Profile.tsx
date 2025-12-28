@@ -5,7 +5,6 @@ import { secureStorage } from '../utils/security';
 import { logger } from '../utils/logger';
 import OrderHistory from './OrderHistory';
 import { FaDownload, FaTrash } from 'react-icons/fa';
-
 const Profile: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
   const [form, setForm] = useState({
@@ -19,13 +18,11 @@ const Profile: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'orders'>('profile');
-
   useEffect(() => {
     if (user) {
       refreshUser();
     }
   }, []);
-
   useEffect(() => {
     if (user) {
       setForm({
@@ -36,15 +33,12 @@ const Profile: React.FC = () => {
       });
     }
   }, [user]);
-
   if (!user) {
     return <div className="pt-24 text-center">Veuillez vous connecter pour voir votre profil.</div>;
   }
-
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
-
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -60,7 +54,6 @@ const Profile: React.FC = () => {
         },
         body: JSON.stringify(form),
       });
-
       if (res.status === 401) {
         logger.log('Token expiré lors de la mise à jour du profil, déconnexion...');
         logout();
@@ -76,7 +69,6 @@ const Profile: React.FC = () => {
       setLoading(false);
     }
   };
-
   const handleDelete = async () => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.')) return;
     setLoading(true);
@@ -89,7 +81,6 @@ const Profile: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-
       if (res.status === 401) {
         logger.log('Token expiré lors de la suppression du compte, déconnexion...');
         logout();
@@ -103,34 +94,28 @@ const Profile: React.FC = () => {
       setLoading(false);
     }
   };
-
   const handleDownload = async () => {
     try {
       const token = secureStorage.getItem('token');
       if (!token) return;
-
       const userResponse = await fetch(`${getApiUrl()}/api/user`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const userData = await userResponse.json();
-
       const addressesResponse = await fetch(`${getApiUrl()}/api/addresses/`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const addressesData = addressesResponse.ok ? await addressesResponse.json() : [];
-
       const ordersResponse = await fetch(`${getApiUrl()}/api/user/orders`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const ordersData = ordersResponse.ok ? await ordersResponse.json() : [];
-
       const allData = {
         user: userData,
         addresses: addressesData,
         orders: ordersData,
         exportedAt: new Date().toISOString()
       };
-
       const data = JSON.stringify(allData, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -145,12 +130,10 @@ const Profile: React.FC = () => {
       setError('Erreur lors du téléchargement');
     }
   };
-
   return (
     <main className="pt-24 pb-12 min-h-screen bg-gray-50">
       <div className="container mx-auto px-6 max-w-7xl">
         <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">Mon Compte</h1>
-        
         <div className="bg-white rounded-2xl shadow-lg mb-6">
           <div className="flex border-b">
             <button
@@ -175,23 +158,19 @@ const Profile: React.FC = () => {
             </button>
           </div>
         </div>
-
         {activeTab === 'profile' && (
           <div className="bg-white rounded-2xl shadow-lg p-8">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Informations personnelles</h2>
-            
             {message && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
                 {message}
               </div>
             )}
-            
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
                 {error}
               </div>
             )}
-
             <form onSubmit={handleSave} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -208,7 +187,6 @@ const Profile: React.FC = () => {
                     required
                   />
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nom
@@ -224,7 +202,6 @@ const Profile: React.FC = () => {
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -240,7 +217,6 @@ const Profile: React.FC = () => {
                     required
                   />
                 </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email
@@ -256,7 +232,6 @@ const Profile: React.FC = () => {
                   />
                 </div>
               </div>
-
               {user?.defaultAddress && (
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -271,7 +246,6 @@ const Profile: React.FC = () => {
                   </p>
                 </div>
               )}
-
               <div className="border-t pt-6">
                 <div className="flex flex-col sm:flex-row gap-4">
                   {editMode ? (
@@ -302,7 +276,6 @@ const Profile: React.FC = () => {
                     </button>
                   )}
                 </div>
-
                 <div className="flex flex-col sm:flex-row gap-4 mt-4">
                   <button 
                     type="button" 
@@ -324,8 +297,6 @@ const Profile: React.FC = () => {
             </form>
           </div>
         )}
-
-
         {activeTab === 'orders' && (
           <div>
             <OrderHistory />
@@ -335,6 +306,4 @@ const Profile: React.FC = () => {
     </main>
   );
 };
-
 export default Profile;
-

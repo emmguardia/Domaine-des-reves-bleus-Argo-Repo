@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { checkRateLimit, getRemainingAttempts } from '../utils/rateLimiter';
-
 const RegisterForm: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -18,37 +17,30 @@ const RegisterForm: React.FC = () => {
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const { register } = useAuth();
   const navigate = useNavigate();
-
   const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
-
   const validatePhone = (phone: string) => {
     return /^\d{10}$/.test(phone);
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setRateLimitError(null);
-
     const rateLimitKey = `register_${email}`;
     if (!checkRateLimit(rateLimitKey, 'register')) {
       const remaining = getRemainingAttempts(rateLimitKey, 'register');
       setRateLimitError(`Trop de tentatives. Réessayez plus tard. (${remaining} tentatives restantes)`);
       return;
     }
-
     if (!validateEmail(email)) {
       setError("Format d'email invalide");
       return;
     }
-
     if (!validatePhone(phone)) {
       setError('Le numéro de téléphone doit contenir exactement 10 chiffres');
       return;
     }
-
     if (password !== confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
       return;
@@ -76,7 +68,6 @@ const RegisterForm: React.FC = () => {
       }
     }
   };
-
   return (
     <main className="pt-24 pb-12 min-h-screen bg-gray-50">
       <div className="container mx-auto px-6">
@@ -87,7 +78,6 @@ const RegisterForm: React.FC = () => {
             className="bg-white rounded-2xl shadow-lg p-8"
           >
             <h2 className="text-2xl font-bold text-center mb-8">Inscription</h2>
-
             {error && (
               <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
                 {error.split('\n').map((line, i) => (
@@ -95,20 +85,17 @@ const RegisterForm: React.FC = () => {
                 ))}
               </div>
             )}
-
             {rateLimitError && (
               <div className="mb-4 p-4 bg-orange-50 border border-orange-200 text-orange-600 rounded-lg">
                 {rateLimitError}
               </div>
             )}
-
             {success && (
               <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
                 <strong className="font-bold">Succès !</strong>
                 <span className="block sm:inline"> Inscription réussie. Redirection vers la page d'accueil...</span>
               </div>
             )}
-
             <motion.form
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -132,7 +119,6 @@ const RegisterForm: React.FC = () => {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nom
@@ -149,7 +135,6 @@ const RegisterForm: React.FC = () => {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email
@@ -166,7 +151,6 @@ const RegisterForm: React.FC = () => {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Téléphone
@@ -183,7 +167,6 @@ const RegisterForm: React.FC = () => {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Mot de passe
@@ -203,7 +186,6 @@ const RegisterForm: React.FC = () => {
                   </div>
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Confirmer le mot de passe
@@ -220,14 +202,12 @@ const RegisterForm: React.FC = () => {
                   />
                 </div>
               </div>
-
               <button
                 type="submit"
                 className="button-primary w-full py-3 px-4 bg-primary text-white rounded-md hover:bg-accent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               >
                 S'inscrire
               </button>
-
               <div className="text-center mt-4">
                 <p className="text-sm text-gray-600">
                   Déjà inscrit ?{' '}
@@ -243,5 +223,4 @@ const RegisterForm: React.FC = () => {
     </main>
   );
 };
-
 export default RegisterForm; 

@@ -4,21 +4,17 @@ import { motion } from 'framer-motion';
 import { FaLock, FaUser } from 'react-icons/fa';
 import { getApiUrl } from '../utils/security';
 import { secureStorage } from '../utils/security';
-
 function AdminLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
   const API_URL = getApiUrl();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       const response = await fetch(`${API_URL}/api/admin/login`, {
         method: 'POST',
@@ -27,22 +23,17 @@ function AdminLogin() {
         },
         body: JSON.stringify({ username, password }),
       });
-
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
         throw new Error(`Réponse non-JSON: ${text.substring(0, 100)}`);
       }
-
       const data = await response.json();
-
       if (!response.ok) {
         throw new Error(data.message || 'Erreur de connexion');
       }
-
       secureStorage.setItem('adminToken', data.token);
       secureStorage.setItem('adminUser', JSON.stringify(data.admin));
-
       navigate('/admin-panel/dashboard');
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la connexion');
@@ -50,7 +41,6 @@ function AdminLogin() {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -66,14 +56,12 @@ function AdminLogin() {
             Accès réservé aux administrateurs
           </p>
         </div>
-
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
               {error}
             </div>
           )}
-
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
@@ -95,7 +83,6 @@ function AdminLogin() {
                 />
               </div>
             </div>
-
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Mot de passe
@@ -117,7 +104,6 @@ function AdminLogin() {
               </div>
             </div>
           </div>
-
           <div>
             <button
               type="submit"
@@ -132,6 +118,4 @@ function AdminLogin() {
     </div>
   );
 }
-
 export default AdminLogin;
-

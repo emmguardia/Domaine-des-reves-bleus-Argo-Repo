@@ -14,18 +14,18 @@ router = APIRouter()
 security = HTTPBearer()
 
 def hash_password(password: str) -> str:
-    """Hash un mot de passe avec bcrypt"""
-    # Tronquer à 72 bytes (limite de bcrypt)
+    
+    
     password_bytes = password.encode('utf-8')[:72]
     password_truncated = password_bytes.decode('utf-8', errors='ignore')
-    # Générer le salt et hasher
+    
     salt = bcrypt.gensalt(rounds=12)
     hashed = bcrypt.hashpw(password_truncated.encode('utf-8'), salt)
     return hashed.decode('utf-8')
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Vérifie un mot de passe contre un hash bcrypt"""
-    # Tronquer à 72 bytes (limite de bcrypt)
+    
+    
     password_bytes = password.encode('utf-8')[:72]
     password_truncated = password_bytes.decode('utf-8', errors='ignore')
     try:

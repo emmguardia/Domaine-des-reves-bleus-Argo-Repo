@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { FaDog, FaCut, FaHeart, FaArrowRight, FaShoppingBag, FaPaw, FaStar } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
-
 function Home() {
   return (
     <main>
@@ -30,7 +29,6 @@ function Home() {
           </motion.div>
         </div>
       </section>
-
       <section className="py-12 sm:py-16 md:py-20 bg-[#faf7f2]">
         <div className="container mx-auto px-4 sm:px-6">
           <motion.div
@@ -51,7 +49,6 @@ function Home() {
                   Nous nous engageons à offrir des soins personnalisés adaptés à la race, au pelage et au tempérament de votre animal.
                 </p>
               </div>
-
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-start space-x-3 sm:space-x-4">
                   <div className="bg-primary/10 p-2 sm:p-3 rounded-full flex-shrink-0">
@@ -73,7 +70,6 @@ function Home() {
                 </div>
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <motion.div
                 whileHover={{ scale: 1.05 }}
@@ -99,7 +95,6 @@ function Home() {
           </motion.div>
         </div>
       </section>
-
       <section className="py-12 sm:py-16 md:py-20 bg-[#faf7f2]">
         <div className="container mx-auto px-4 sm:px-6">
           <motion.div
@@ -112,7 +107,6 @@ function Home() {
             <div className="absolute -top-8 sm:-top-16 left-1/2 transform -translate-x-1/2 hidden sm:block">
               <FaPaw className="text-primary/10 text-[80px] sm:text-[120px]" />
             </div>
-            
             <div className="grid sm:grid-cols-3 gap-6 sm:gap-8 relative z-10">
               <div className="text-center space-y-3 sm:space-y-4">
                 <div className="text-3xl sm:text-4xl font-bold text-primary">2016</div>
@@ -121,7 +115,6 @@ function Home() {
                   Canins et félins obtenu en 2016
                 </p>
               </div>
-
               <div className="text-center space-y-3 sm:space-y-4">
                 <div className="text-3xl sm:text-4xl font-bold text-primary">2017</div> 
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-800">Spécialisation cocker</h3>
@@ -129,7 +122,6 @@ function Home() {
                   Toilettage spécialisé coupe cocker depuis 2017
                 </p>
               </div>
-
               <div className="text-center space-y-3 sm:space-y-4">
                 <div className="text-3xl sm:text-4xl font-bold text-primary">2018</div>
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-800">Éducateur canin</h3>
@@ -138,7 +130,6 @@ function Home() {
                 </p>
               </div>
             </div>
-
             <div className="mt-8 sm:mt-12 md:mt-16 bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg">
               <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-8">  
                 <div className="md:w-1/3">
@@ -186,7 +177,6 @@ function Home() {
           </motion.div>
         </div>
       </section>
-
       <div className="container mx-auto px-6 bg-[#faf7f2]">
         <div className="flex items-center justify-center py-16">
           <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent w-full" />
@@ -196,7 +186,6 @@ function Home() {
           <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent w-full" />
         </div>
       </div>
-
       <section className="pb-16 sm:pb-24 md:pb-32 bg-[#faf7f2]">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
@@ -225,7 +214,6 @@ function Home() {
                 </div>
               </Link>
             </motion.div>
-
             <motion.div
               whileHover={{ scale: 1.02 }}
               className="relative overflow-hidden rounded-xl sm:rounded-2xl shadow-xl group"
@@ -257,5 +245,4 @@ function Home() {
     </main>
   );
 }
-
 export default Home;

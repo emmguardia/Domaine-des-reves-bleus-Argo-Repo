@@ -3,14 +3,12 @@ import { motion } from 'framer-motion';
 import { getApiUrl } from '../../utils/security';
 import { secureStorage } from '../../utils/security';
 import { logger } from '../../utils/logger';
-
 interface OrderItem {
   name: string;
   price: number;
   quantity: number;
   image: string;
 }
-
 interface Order {
   _id: string;
   paymentIntentId: string;
@@ -36,17 +34,13 @@ interface Order {
     email: string;
   };
 }
-
 function AdminOrderHistory() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-
   const API_URL = getApiUrl();
-
   useEffect(() => {
     fetchHistory();
   }, []);
-
   const fetchHistory = async () => {
     try {
       const token = secureStorage.getItem('adminToken');
@@ -55,7 +49,6 @@ function AdminOrderHistory() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -73,7 +66,6 @@ function AdminOrderHistory() {
       setLoading(false);
     }
   };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid':
@@ -90,7 +82,6 @@ function AdminOrderHistory() {
         return 'bg-yellow-100 text-yellow-700';
     }
   };
-
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'paid':
@@ -107,7 +98,6 @@ function AdminOrderHistory() {
         return 'En attente';
     }
   };
-
   if (loading) {
     return (
       <div className="p-8">
@@ -117,7 +107,6 @@ function AdminOrderHistory() {
       </div>
     );
   }
-
   return (
     <div className="p-8">
       <motion.div
@@ -128,7 +117,6 @@ function AdminOrderHistory() {
         <h1 className="text-3xl font-bold text-gray-900">Historique des Commandes</h1>
         <p className="text-gray-600 mt-2">Consultez toutes les commandes passées</p>
       </motion.div>
-
       <div className="space-y-4">
         {orders.map((order) => (
           <motion.div
@@ -161,7 +149,6 @@ function AdminOrderHistory() {
                 {getStatusLabel(order.status)}
               </span>
             </div>
-
             <div className="grid md:grid-cols-2 gap-6 mb-4">
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Articles</h4>
@@ -186,7 +173,6 @@ function AdminOrderHistory() {
                   ))}
                 </div>
               </div>
-
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Livraison</h4>
                 <div className="text-sm text-gray-600 space-y-1">
@@ -202,7 +188,6 @@ function AdminOrderHistory() {
                 </div>
               </div>
             </div>
-
             <div className="pt-4 border-t">
               <div className="flex justify-between items-center">
                 <div>
@@ -223,7 +208,6 @@ function AdminOrderHistory() {
             </div>
           </motion.div>
         ))}
-
         {orders.length === 0 && (
           <div className="text-center py-12 bg-white rounded-xl shadow-lg">
             <p className="text-gray-600">Aucune commande dans l'historique</p>
@@ -233,6 +217,4 @@ function AdminOrderHistory() {
     </div>
   );
 }
-
 export default AdminOrderHistory;
-

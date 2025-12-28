@@ -3,11 +3,9 @@ import { motion } from 'framer-motion';
 import { FaTimes, FaTrash } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import { Link } from 'react-router-dom';
-
 interface CartProps {
   onClose: () => void;
 }
-
 const Cart: React.FC<CartProps> = ({ onClose }) => {
   const { 
     cartItems, 
@@ -19,10 +17,8 @@ const Cart: React.FC<CartProps> = ({ onClose }) => {
     shippingCalculation,
     isCalculatingShipping
   } = useCart();
-
   const totalWeightGrams = cartItems.reduce((sum, item) => sum + (item.weightGrams ?? 100) * item.quantity, 0);
   const totalWeightKg = (totalWeightGrams / 1000);
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-[60]">
       <motion.div
@@ -44,7 +40,6 @@ const Cart: React.FC<CartProps> = ({ onClose }) => {
             </button>
           </div>
         </div>
-
         <div className="flex-grow overflow-y-auto px-6 py-4">
           {cartItems.length === 0 ? (
             <p className="text-gray-500 text-center mt-8">Votre panier est vide.</p>
@@ -82,7 +77,6 @@ const Cart: React.FC<CartProps> = ({ onClose }) => {
                         <FaTrash />
                       </button>
                     </div>
-
                     <div className="mt-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <button
@@ -105,7 +99,6 @@ const Cart: React.FC<CartProps> = ({ onClose }) => {
                         Sous-total: <span className="font-semibold">{(item.price * item.quantity).toFixed(2)} €</span>
                       </div>
                     </div>
-
                     <div className="mt-2 text-[12px] text-gray-500">
                       Poids: {(item.weightGrams ?? 100)} g / unité • Total: {((item.weightGrams ?? 100) * item.quantity)} g
                     </div>
@@ -115,7 +108,6 @@ const Cart: React.FC<CartProps> = ({ onClose }) => {
             </div>
           )}
         </div>
-
         {cartItems.length > 0 && (
           <div className="border-t p-6 flex-shrink-0 bg-white">
             <div className="space-y-2 mb-4">
@@ -166,5 +158,4 @@ const Cart: React.FC<CartProps> = ({ onClose }) => {
     </div>
   );
 };
-
 export default Cart;

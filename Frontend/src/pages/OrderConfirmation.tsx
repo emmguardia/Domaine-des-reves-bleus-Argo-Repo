@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaCheckCircle, FaTimesCircle, FaSpinner } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
-
 const OrderConfirmation: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<string | null>(null);
@@ -11,7 +10,6 @@ const OrderConfirmation: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const { clearCart } = useCart();
-
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
@@ -20,11 +18,9 @@ const OrderConfirmation: React.FC = () => {
     for (let entry of searchParams.entries()) {
        console.log(entry[0], '=', entry[1]);
     }
-
     const paymentIntentId = searchParams.get('payment_intent');
     const initialRedirectStatus = searchParams.get('redirect_status');
     const manualSuccessStatus = searchParams.get('payment_intent_status');
-
     const handleSuccess = () => {
       if (isMounted) {
          setStatus('succeeded');
@@ -33,7 +29,6 @@ const OrderConfirmation: React.FC = () => {
          setIsLoading(false);
       }
     };
-
     const processVerification = async () => {
       if (!paymentIntentId) {
         if (isMounted) {
@@ -45,7 +40,6 @@ const OrderConfirmation: React.FC = () => {
         }
         return;
       }
-
       try {
         console.log("ID PaymentIntent trouvé, vérification backend...");
         const res = await fetch(`/api/get-payment-status?payment_intent=${paymentIntentId}`);
@@ -56,7 +50,6 @@ const OrderConfirmation: React.FC = () => {
         const data = await res.json();
         const finalStatus = data.status;
         console.log("Statut final reçu du backend:", finalStatus);
-
         if (isMounted) {
             setStatus(finalStatus);
             switch (finalStatus) {
@@ -91,20 +84,16 @@ const OrderConfirmation: React.FC = () => {
           }
       }
     };
-
     if (manualSuccessStatus === 'succeeded') {
       console.log("Succès détecté via paramètre de navigation manuelle.");
       handleSuccess();
     } else {
       processVerification();
     }
-
     return () => {
        isMounted = false;
     };
-
   }, [searchParams, clearCart]);
-
   const renderIcon = () => {
     if (isLoading) return <FaSpinner className="animate-spin text-4xl text-gray-500 mb-4" />;
     switch (status) {
@@ -118,7 +107,6 @@ const OrderConfirmation: React.FC = () => {
         return <FaTimesCircle className="text-6xl text-red-500 mb-4" />;
     }
   };
-
   return (
     <main className="pt-24 pb-12 flex-grow flex items-center justify-center">
       <motion.div
@@ -129,19 +117,15 @@ const OrderConfirmation: React.FC = () => {
          <div className="flex justify-center">
             {renderIcon()}
          </div>
-
          <h1 className="text-2xl font-bold text-gray-800 mb-4">
            {isLoading ? 'Vérification du paiement...' : 'Statut de la commande'}
          </h1>
-         
          <p className="text-gray-600 mb-8">
            {isLoading ? 'Veuillez patienter...' : message}
          </p>
-
          {verificationError && (
              <p className="text-xs text-red-400 mb-4">Erreur de vérification: {verificationError}</p>
          )}
-
          {!isLoading && (
              <Link to="/" className="button-primary">
                Retour à l'accueil
@@ -156,6 +140,4 @@ const OrderConfirmation: React.FC = () => {
     </main>
   );
 };
-
 export default OrderConfirmation;
-

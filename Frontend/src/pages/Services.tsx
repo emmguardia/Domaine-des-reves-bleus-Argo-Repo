@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { FaBath, FaCut, FaHeart, FaPaw, FaSprayCan, FaClock, FaArrowRight } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
-
 const Services: React.FC = () => {
   const services = [
     {
@@ -64,7 +63,6 @@ const Services: React.FC = () => {
       ]
     }
   ];
-
   return (
     <main className="pt-24 pb-12">
       <div className="container mx-auto px-6">
@@ -80,7 +78,6 @@ const Services: React.FC = () => {
             Spécialisée en épilation cocker depuis 2017, je propose des soins adaptés à cette race
           </p>
         </motion.div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
           {services.map((service) => (
             <motion.div
@@ -99,9 +96,7 @@ const Services: React.FC = () => {
                   <p className="text-primary font-semibold">{service.price}</p>
                 </div>
               </div>
-              
               <p className="text-gray-600 mb-4">{service.description}</p>
-              
               <div className="bg-gray-50 rounded-xl p-4 mb-4">
                 <div className="flex items-center text-sm text-gray-600 mb-2">
                   <FaClock className="mr-2" />
@@ -116,7 +111,6 @@ const Services: React.FC = () => {
                   ))}
                 </ul>
               </div>
-
               <Link 
                 to="/contact" 
                 className="button-primary w-full text-center"
@@ -126,7 +120,6 @@ const Services: React.FC = () => {
             </motion.div>
           ))}
         </div>
-
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -152,5 +145,4 @@ const Services: React.FC = () => {
     </main>
   );
 };
-
 export default Services;

@@ -11,7 +11,6 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { trackPageView } from './utils/analytics';
-
 const Checkout = lazy(() => import('./pages/Checkout'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const Profile = lazy(() => import('./pages/Profile'));
@@ -20,7 +19,6 @@ const CGV = lazy(() => import('./pages/CGV'));
 const PolitiqueConfidentialite = lazy(() => import('./pages/PolitiqueConfidentialite'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
-
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center">
     <div className="text-center">
@@ -29,15 +27,12 @@ const LoadingSpinner = () => (
     </div>
   </div>
 );
-
 function AppContent() {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin-panel');
-
   useEffect(() => {
     trackPageView(location.pathname);
   }, [location]);
-
   return (
     <div className="min-h-screen flex flex-col">
       {!isAdminRoute && <Header />}
@@ -66,7 +61,6 @@ function AppContent() {
     </div>
   );
 }
-
 function App() {
   return (
     <ErrorBoundary>
@@ -76,5 +70,4 @@ function App() {
     </ErrorBoundary>
   );
 }
-
 export default App;

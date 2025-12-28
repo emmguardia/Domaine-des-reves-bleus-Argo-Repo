@@ -6,7 +6,6 @@ import { calculateShippingCost, calculateShippingCostFallback, validateDeliveryA
 import { getApiUrl } from '../utils/security';
 import { secureStorage } from '../utils/security';
 import { logger } from '../utils/logger';
-
 interface CartItem {
   id: number;
   name: string;
@@ -14,9 +13,8 @@ interface CartItem {
   quantity: number;
   image: string;
   volume?: string | null;
-  weightGrams?: number; // poids par article en grammes (par défaut 100g)
+  weightGrams?: number; 
 }
-
 interface CartContextType {
   cartItems: CartItem[];
   addToCart: (item: CartItem) => void;
@@ -28,16 +26,13 @@ interface CartContextType {
   cartSubtotal: number;
   shippingCost: number;
   cartTotal: number;
-
   deliveryAddress: string;
   setDeliveryAddress: (address: string) => void;
   shippingCalculation: any | null;
   isCalculatingShipping: boolean;
   calculateShippingForAddress: (address: string) => Promise<void>;
 }
-
 const CartContext = createContext<CartContextType | undefined>(undefined);
-
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
@@ -45,7 +40,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCalculatingShipping, setIsCalculatingShipping] = useState<boolean>(false);
   const { user, logout } = useAuth();
   const isUpdatingFromBackend = useRef(false);
-
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
@@ -57,12 +51,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return Promise.reject(error);
       }
     );
-
     return () => {
       axios.interceptors.response.eject(interceptor);
     };
   }, [logout]);
-
   useEffect(() => {
     const loadCart = async () => {
       if (user) {
@@ -73,10 +65,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             logger.error('Token non trouvé');
             return;
           }
-
           const apiUrl = getApiUrl();
-          // Construire l'URL : si apiUrl est vide, on utilise '/api/cart/' (URL relative avec slash final)
-          // FastAPI redirige automatiquement /api/cart vers /api/cart/, donc on ajoute le slash directement
           const fullUrl = apiUrl ? `${apiUrl}/api/cart/` : '/api/cart/';
           const response = await axios.get(fullUrl, {
             headers: {
@@ -84,13 +73,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               'Content-Type': 'application/json'
             }
           });
-
           if (import.meta.env.DEV) {
             console.log('Réponse du backend:', response.data);
           }
           if (response.data && response.data.items) {
             isUpdatingFromBackend.current = true;
-
             const itemsWithWeights = response.data.items.map((item: any) => {
               if (!item.weightGrams) {
                 console.warn(`Item ${item.id} (${item.name}) n'a pas de weightGrams, utilisation de 100g par défaut`);
@@ -98,7 +85,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
               return item;
             });
-
             const totalWeightGrams = itemsWithWeights.reduce((sum: number, item: any) => 
               sum + (item.weightGrams || 100) * item.quantity, 0
             );
@@ -108,7 +94,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 `${item.name}: ${item.weightGrams}g x ${item.quantity} = ${item.weightGrams * item.quantity}g`
               ));
             }
-            
             setCartItems(itemsWithWeights);
             if (import.meta.env.DEV) {
               console.log('Panier chargé avec succès:', itemsWithWeights);
@@ -121,7 +106,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('Erreur lors du chargement du panier:', error);
           if (axios.isAxiosError(error)) {
             console.error('Détails de l\'erreur:', error.response?.data);
-
           }
           setCartItems([]);
         }
@@ -132,16 +116,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCartItems([]);
       }
     };
-
     loadCart();
   }, [user]);
-
   useEffect(() => {
     if (user && cartItems.length > 0 && !isUpdatingFromBackend.current) {
       const saveCart = async () => {
         try {
           logger.log('Sauvegarde du panier sur le backend');
-
           const cleanItems = cartItems
             .filter(item => item.id && item.name && item.price && item.quantity && item.image)
             .map(item => ({
@@ -153,15 +134,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               volume: item.volume ?? undefined,
               weightGrams: item.weightGrams ?? 100
             }));
-          
           logger.log('Données nettoyées pour sauvegarde');
-          
           const token = secureStorage.getItem('token');
           if (!token) {
             logger.error('Token non trouvé');
             return;
           }
-
           const apiUrl = getApiUrl();
           const fullUrl = apiUrl ? `${apiUrl}/api/cart/` : '/api/cart/';
           const response = await axios.post(
@@ -175,12 +153,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           );
           logger.log('Panier sauvegardé avec succès');
-
           if (response.data && response.data.items) {
             isUpdatingFromBackend.current = true;
             setCartItems(response.data.items);
             logger.log('État local mis à jour avec les données du backend');
-
             setTimeout(() => {
               isUpdatingFromBackend.current = false;
             }, 100);
@@ -189,23 +165,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('Erreur lors de la sauvegarde du panier:', error);
           if (axios.isAxiosError(error)) {
             console.error('Détails de l\'erreur:', error.response?.data);
-
           }
         }
       };
       saveCart();
     } else if (isUpdatingFromBackend.current) {
-
       isUpdatingFromBackend.current = false;
     }
   }, [cartItems, user]);
-
   const addToCart = (item: CartItem) => {
     if (import.meta.env.DEV) {
       console.log('Ajout au panier:', item);
     }
     setCartItems(prevItems => {
-
       const existingItem = prevItems.find(i => 
         i.id === item.id && i.volume === item.volume
       );
@@ -225,7 +197,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return newItems;
     });
   };
-
   const removeFromCart = (itemId: number, volume?: string | null) => {
     if (import.meta.env.DEV) {
       console.log('Suppression du panier:', itemId, volume);
@@ -240,7 +211,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return newItems;
     });
   };
-
   const updateQuantity = (itemId: number, quantity: number, volume?: string | null) => {
     if (import.meta.env.DEV) {
       console.log('Mise à jour quantité:', itemId, quantity, volume);
@@ -259,7 +229,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   };
-
   const clearCart = () => {
     if (import.meta.env.DEV) {
       console.log('Vidage du panier');
@@ -268,18 +237,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDeliveryAddress('');
     setShippingCalculation(null);
   };
-
   const calculateShippingForAddress = async (address: string) => {
     if (!address || cartItems.length === 0) {
       setShippingCalculation(null);
       return;
     }
-
     setIsCalculatingShipping(true);
     setDeliveryAddress(address);
-
     try {
-
       if (!validateDeliveryAddress(address)) {
         console.warn('Adresse de livraison invalide, utilisation du calcul par défaut');
         const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
@@ -287,16 +252,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsCalculatingShipping(false);
         return;
       }
-
       if (import.meta.env.DEV) {
         console.log('Calcul des frais de port pour:', cartWeightGrams, 'grammes (', (cartWeightGrams / 1000).toFixed(2), 'kg)');
         console.log('Détail des items:', cartItems.map(item => 
           `${item.name}: ${item.weightGrams ?? 100}g x ${item.quantity} = ${(item.weightGrams ?? 100) * item.quantity}g`
         ));
       }
-      
       const calculation = await calculateShippingCost(address, cartWeightGrams);
-      
       if (calculation) {
         setShippingCalculation(calculation);
         if (import.meta.env.DEV) {
@@ -304,7 +266,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('Prix La Poste calculé pour', calculation.weightKg, 'kg:', calculation.basePrice, '€');
         }
       } else {
-
         const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
         setShippingCalculation(fallbackCalculation);
         if (import.meta.env.DEV) {
@@ -315,22 +276,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Erreur lors du calcul des frais de port:', error);
-
       const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
       setShippingCalculation(fallbackCalculation);
     } finally {
       setIsCalculatingShipping(false);
     }
   };
-
   const sendOrderConfirmation = async (orderData: any): Promise<boolean> => {
     if (!user) return false;
-
     try {
       const orderItems = cartItems.map(item => 
         `- ${item.name}${item.volume ? ` (${item.volume})` : ''} x${item.quantity} - ${(item.price * item.quantity).toFixed(2)}€`
       ).join('\n');
-
       const success = await sendOrderConfirmationEmail({
         to_email: user.email,
         to_name: `${user.firstName} ${user.lastName}`,
@@ -339,42 +296,33 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         order_total: `Sous-total: ${cartSubtotal.toFixed(2)}€\nFrais de port: ${shippingCost.toFixed(2)}€\nTotal: ${cartTotal.toFixed(2)}€`,
         shipping_address: orderData.shippingAddress || 'Adresse non spécifiée'
       });
-
       return success;
     } catch (error) {
       console.error('Erreur lors de l\'envoi de la confirmation de commande:', error);
       return false;
     }
   };
-
   const cartCount = useMemo(() => {
     return cartItems.reduce((count, item) => count + item.quantity, 0);
   }, [cartItems]);
-
   const cartSubtotal = useMemo(() => {
     return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
   }, [cartItems]);
-
   const cartWeightGrams = useMemo(() => {
     const totalWeight = cartItems.reduce((sum, item) => sum + (item.weightGrams ?? 100) * item.quantity, 0);
     return totalWeight;
   }, [cartItems]);
-
   const shippingCost = useMemo(() => {
     if (cartItems.length === 0) return 0;
-
     if (shippingCalculation) {
       return shippingCalculation.totalShipping;
     }
-
     const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
     return fallbackCalculation.totalShipping;
   }, [cartItems, shippingCalculation, cartWeightGrams]);
-
   const cartTotal = useMemo(() => {
     return cartSubtotal + shippingCost;
   }, [cartSubtotal, shippingCost]);
-
   return (
     <CartContext.Provider
       value={{
@@ -388,7 +336,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         cartSubtotal,
         shippingCost,
         cartTotal,
-
         deliveryAddress,
         setDeliveryAddress,
         shippingCalculation,
@@ -400,7 +347,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </CartContext.Provider>
   );
 };
-
 export const useCart = () => {
   const context = useContext(CartContext);
   if (context === undefined) {

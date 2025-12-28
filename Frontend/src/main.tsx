@@ -4,11 +4,9 @@ import App from './App'
 import './index.css'
 import { CartProvider } from './context/CartContext'
 import { AuthProvider } from './context/AuthContext'
-
 window.addEventListener('error', (event) => {
   const errorMessage = event.message || event.error?.message || '';
   const errorSource = event.filename || event.error?.stack || '';
-  
   if (
     errorMessage.includes('r.stripe.com') ||
     errorMessage.includes('m.stripe.com') ||
@@ -30,11 +28,9 @@ window.addEventListener('error', (event) => {
     return false;
   }
 }, true);
-
 window.addEventListener('unhandledrejection', (event) => {
   const errorMessage = event.reason?.message || event.reason?.toString() || '';
   const errorStack = event.reason?.stack || '';
-  
   if (
     errorMessage.includes('r.stripe.com') ||
     errorMessage.includes('m.stripe.com') ||
@@ -55,7 +51,6 @@ window.addEventListener('unhandledrejection', (event) => {
     return false;
   }
 });
-
 const originalConsoleError = console.error;
 console.error = function(...args: any[]) {
   const message = args.join(' ');
@@ -77,11 +72,9 @@ console.error = function(...args: any[]) {
   }
   originalConsoleError.apply(console, args);
 };
-
 window.addEventListener('error', (event) => {
   const errorMessage = event.message || event.error?.message || '';
   const errorSource = event.filename || event.error?.stack || '';
-
   if (
     errorMessage.includes('bootstrap-autofill-overlay') ||
     errorMessage.includes('insertBefore') ||
@@ -100,11 +93,9 @@ window.addEventListener('error', (event) => {
     return false;
   }
 }, true);
-
 window.addEventListener('unhandledrejection', (event) => {
   const errorMessage = event.reason?.message || event.reason?.toString() || '';
   const errorStack = event.reason?.stack || '';
-  
   if (
     errorMessage.includes('bootstrap-autofill-overlay') ||
     errorMessage.includes('insertBefore') ||
@@ -121,15 +112,12 @@ window.addEventListener('unhandledrejection', (event) => {
     return false;
   }
 });
-
 function waitForStyles(): Promise<void> {
   return new Promise((resolve) => {
-    // Timeout de sécurité : afficher le contenu après 2 secondes maximum
     const timeout = setTimeout(() => {
       document.body.classList.add('styles-loaded');
       resolve();
     }, 2000);
-
     const markStylesLoaded = () => {
       clearTimeout(timeout);
       const stylesheets = Array.from(document.styleSheets);
@@ -137,11 +125,9 @@ function waitForStyles(): Promise<void> {
         try {
           return sheet.cssRules || sheet.rules;
         } catch (e) {
-          // Ignorer les erreurs CORS pour les feuilles de style externes
           return true;
         }
       });
-      
       if (allLoaded || document.readyState === 'complete') {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
@@ -153,7 +139,6 @@ function waitForStyles(): Promise<void> {
         setTimeout(markStylesLoaded, 50);
       }
     };
-
     if (document.readyState === 'complete') {
       markStylesLoaded();
     } else if (document.readyState === 'interactive') {
@@ -167,9 +152,6 @@ function waitForStyles(): Promise<void> {
     }
   });
 }
-
-// Rendre l'application immédiatement, sans attendre les styles
-// Cela évite que la page reste blanche si le CSS a un problème
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   console.error('Root element not found!');

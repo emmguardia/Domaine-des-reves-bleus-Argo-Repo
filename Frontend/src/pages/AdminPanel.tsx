@@ -25,33 +25,25 @@ import AdminOrderHistory from './admin/AdminOrderHistory';
 import AdminCategories from './admin/AdminCategories';
 import AdminUsers from './admin/AdminUsers';
 import AdminAdvancedStats from './admin/AdminAdvancedStats';
-
 function AdminPanel() {
   const navigate = useNavigate();
   const location = useLocation();
   const [adminUser, setAdminUser] = useState<any>(null);
-
   const API_URL = getApiUrl();
-
   useEffect(() => {
-
     const token = secureStorage.getItem('adminToken');
     const user = secureStorage.getItem('adminUser');
-
     if (!token || !user) {
       navigate('/admin-panel');
       return;
     }
-
     setAdminUser(JSON.parse(user));
   }, [navigate]);
-
   const handleLogout = () => {
     secureStorage.removeItem('adminToken');
     secureStorage.removeItem('adminUser');
     navigate('/admin-panel');
   };
-
   if (!adminUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -62,7 +54,6 @@ function AdminPanel() {
       </div>
     );
   }
-
   const menuItems = [
     { path: '/admin-panel/dashboard', icon: FaChartLine, label: 'Tableau de bord' },
     { path: '/admin-panel/stats', icon: FaChartLine, label: 'Statistiques' },
@@ -72,7 +63,6 @@ function AdminPanel() {
     { path: '/admin-panel/history', icon: FaHistory, label: 'Historique' },
     { path: '/admin-panel/users', icon: FaUser, label: 'Utilisateurs' },
   ];
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
@@ -81,7 +71,6 @@ function AdminPanel() {
             <h1 className="text-2xl font-bold text-blue-600">Admin Panel</h1>
             <p className="text-sm text-gray-600 mt-1">Les Rêves Bleus</p>
           </div>
-
           <nav className="flex-1 p-4 space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -102,7 +91,6 @@ function AdminPanel() {
               );
             })}
           </nav>
-
           <div className="p-4 border-t">
             <div className="mb-4 px-4 py-2 bg-gray-50 rounded-lg">
               <p className="text-sm font-medium text-gray-700">{adminUser.username}</p>
@@ -118,7 +106,6 @@ function AdminPanel() {
           </div>
         </div>
       </div>
-
       <div className="ml-64 pt-8">
         <Routes>
           <Route path="/dashboard" element={<AdminDashboard />} />
@@ -134,6 +121,4 @@ function AdminPanel() {
     </div>
   );
 }
-
 export default AdminPanel;
-

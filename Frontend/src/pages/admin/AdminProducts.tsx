@@ -4,7 +4,6 @@ import { FaPlus, FaEdit, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
 import { getApiUrl } from '../../utils/security';
 import { secureStorage } from '../../utils/security';
 import { logger } from '../../utils/logger';
-
 interface Product {
   _id: string;
   name: string;
@@ -15,7 +14,6 @@ interface Product {
   stock: number;
   weightGrams?: number;
 }
-
 function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,13 +29,10 @@ function AdminProducts() {
     weightGrams: '100',
   });
   const [uploadingImage, setUploadingImage] = useState(false);
-
   const API_URL = getApiUrl();
-
   useEffect(() => {
     fetchProducts();
   }, []);
-
   const fetchProducts = async () => {
     try {
       const token = secureStorage.getItem('adminToken');
@@ -46,12 +41,10 @@ function AdminProducts() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const data = await response.json();
-          // Mapper les produits pour convertir id en _id
           const mappedProducts = data.map((product: any) => ({
             ...product,
             _id: product.id || product._id,
@@ -70,19 +63,15 @@ function AdminProducts() {
       setLoading(false);
     }
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = secureStorage.getItem('adminToken');
-      // Utiliser id ou _id selon ce qui est disponible
       const productId = editingProduct?._id || editingProduct?.id;
       const url = editingProduct
         ? `${API_URL}/api/admin/products/${productId}`
         : `${API_URL}/api/admin/products`;
-
       const method = editingProduct ? 'PUT' : 'POST';
-
       const response = await fetch(url, {
         method,
         headers: {
@@ -96,7 +85,6 @@ function AdminProducts() {
           weightGrams: parseInt(formData.weightGrams),
         }),
       });
-
       if (response.ok) {
         setShowModal(false);
         setEditingProduct(null);
@@ -115,7 +103,6 @@ function AdminProducts() {
       logger.error('Erreur lors de la sauvegarde du produit:', error);
     }
   };
-
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setFormData({
@@ -129,12 +116,10 @@ function AdminProducts() {
     });
     setShowModal(true);
   };
-
   const handleDelete = async (product: Product) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
       return;
     }
-
     try {
       const token = secureStorage.getItem('adminToken');
       const productId = product._id || product.id;
@@ -144,7 +129,6 @@ function AdminProducts() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         fetchProducts();
       }
@@ -152,7 +136,6 @@ function AdminProducts() {
       console.error('Erreur lors de la suppression du produit:', error);
     }
   };
-
   const handleNewProduct = () => {
     setEditingProduct(null);
     setFormData({
@@ -166,7 +149,6 @@ function AdminProducts() {
     });
     setShowModal(true);
   };
-
   if (loading) {
     return (
       <div className="p-8">
@@ -176,7 +158,6 @@ function AdminProducts() {
       </div>
     );
   }
-
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
@@ -195,7 +176,6 @@ function AdminProducts() {
           <span>Ajouter un produit</span>
         </button>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => (
           <motion.div
@@ -256,7 +236,6 @@ function AdminProducts() {
           </motion.div>
         ))}
       </div>
-
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <motion.div
@@ -332,13 +311,11 @@ function AdminProducts() {
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        
                         setUploadingImage(true);
                         try {
                           const token = secureStorage.getItem('adminToken');
                           const formData = new FormData();
                           formData.append('file', file);
-                          
                           const response = await fetch(`${API_URL}/api/admin/upload/image`, {
                             method: 'POST',
                             headers: {
@@ -346,7 +323,6 @@ function AdminProducts() {
                             },
                             body: formData,
                           });
-                          
                           if (response.ok) {
                             const data = await response.json();
                             setFormData(prev => ({ ...prev, image: data.url }));
@@ -433,6 +409,4 @@ function AdminProducts() {
     </div>
   );
 }
-
 export default AdminProducts;
-

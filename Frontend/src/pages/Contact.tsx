@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { FaClock, FaMapMarkerAlt, FaEnvelope } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { sendContactEmail } from '../services/emailService';
-
 const Contact: React.FC = () => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
@@ -14,7 +13,6 @@ const Contact: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState({ type: '', text: '' });
-
   useEffect(() => {
     if (user) {
       setFormData({
@@ -25,7 +23,6 @@ const Contact: React.FC = () => {
       });
     }
   }, [user]);
-
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -33,22 +30,18 @@ const Contact: React.FC = () => {
       [name]: value
     }));
   };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitMessage({ type: '', text: '' });
-
     try {
       const result = await sendContactEmail({
         from_name: `${formData.firstName} ${formData.lastName}`.trim(),
         from_email: formData.email,
         message: formData.message
       });
-
       if (result.success) {
         setSubmitMessage({ type: 'success', text: result.message });
-
         setFormData({
           lastName: user?.lastName || '',
           firstName: user?.firstName || '',
@@ -65,7 +58,6 @@ const Contact: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-
   return (
     <main className="pt-24 pb-12">
       <div className="container mx-auto px-6">
@@ -81,7 +73,6 @@ const Contact: React.FC = () => {
             Toiletteuse spécialisée en épilation cocker, je suis à votre disposition pour vos questions
           </p>
         </motion.div>
-
         <div className="grid md:grid-cols-2 gap-12">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -132,7 +123,6 @@ const Contact: React.FC = () => {
                   )}
                 </div>
               </div>
-              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email
@@ -149,7 +139,6 @@ const Contact: React.FC = () => {
                   <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Pré-rempli</span>
                 )}
               </div>
-              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Message
@@ -162,7 +151,6 @@ const Contact: React.FC = () => {
                   placeholder="Votre message..."
                 ></textarea>
               </div>
-              
               <button 
                 type="submit" 
                 className="button-primary w-full"
@@ -172,7 +160,6 @@ const Contact: React.FC = () => {
               </button>
             </form>
           </motion.div>
-
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -189,7 +176,6 @@ const Contact: React.FC = () => {
                 </div>
               </div>
             </div>
-
             <div className="contact-info-card p-6">
               <div className="flex items-start space-x-4">
                 <div className="bg-primary/10 p-3 rounded-full">
@@ -205,7 +191,6 @@ const Contact: React.FC = () => {
                 </div>
               </div>
             </div>
-
             <div className="contact-info-card p-6">
               <div className="flex items-start space-x-4">
                 <div className="bg-primary/10 p-3 rounded-full">
@@ -223,5 +208,4 @@ const Contact: React.FC = () => {
     </main>
   );
 };
-
 export default Contact;

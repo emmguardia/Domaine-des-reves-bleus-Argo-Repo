@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-
 const MentionsLegales: React.FC = () => {
   return (
     <main className="pt-24 pb-12">
@@ -13,7 +12,6 @@ const MentionsLegales: React.FC = () => {
           <h1 className="text-4xl font-bold text-gray-800 mb-8">
             Mentions légales
           </h1>
-          
           <div className="space-y-8 text-gray-700">
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">1. Informations concernant le site</h2>
@@ -22,7 +20,6 @@ const MentionsLegales: React.FC = () => {
                 <li><strong>URL :</strong> www.domainedesrevesbleus.eu</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">2. Éditeur du site</h2>
               <ul className="space-y-2 text-gray-600">
@@ -35,7 +32,6 @@ const MentionsLegales: React.FC = () => {
                 <li><strong>Responsable de la publication :</strong> Melozay Laurence</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">3. Hébergement</h2>
               <ul className="space-y-2 text-gray-600">
@@ -46,7 +42,6 @@ const MentionsLegales: React.FC = () => {
                 <li><strong>Site web :</strong> www.zenixweb.fr</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">4. Propriété intellectuelle</h2>
               <ul className="space-y-2 text-gray-600">
@@ -54,7 +49,6 @@ const MentionsLegales: React.FC = () => {
                 <li><strong>Droits :</strong> Toute reproduction, modification, diffusion ou exploitation totale ou partielle du site ou de son contenu est interdite sans autorisation écrite préalable de l'éditeur.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">5. Collecte et traitement des données</h2>
               <ul className="space-y-2 text-gray-600">
@@ -64,7 +58,6 @@ const MentionsLegales: React.FC = () => {
                 <li><strong>Contact pour exercer ces droits :</strong> contactez-nous à : domainedesrevesbleus@orange.fr</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">6. Cookies</h2>
               <ul className="space-y-2 text-gray-600">
@@ -72,7 +65,6 @@ const MentionsLegales: React.FC = () => {
                 <li><strong>Gestion :</strong> Vous pouvez configurer votre navigateur pour refuser certains cookies.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">7. Limitation de responsabilité</h2>
               <ul className="space-y-2 text-gray-600">
@@ -80,14 +72,12 @@ const MentionsLegales: React.FC = () => {
                 <li><strong>Exonération :</strong> L'éditeur ne peut être tenu responsable des dommages directs ou indirects liés à l'accès ou à l'utilisation du site.</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">8. Liens externes</h2>
               <p className="text-gray-600 leading-relaxed">
                 <strong>Responsabilité :</strong> L'éditeur décline toute responsabilité pour le contenu des sites tiers accessibles via des liens.
               </p>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">9. Droit applicable et juridiction</h2>
               <ul className="space-y-2 text-gray-600">
@@ -101,6 +91,4 @@ const MentionsLegales: React.FC = () => {
     </main>
   );
 };
-
 export default MentionsLegales;
-

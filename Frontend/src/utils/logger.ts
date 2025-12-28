@@ -1,5 +1,4 @@
 const isDevelopment = import.meta.env.DEV;
-
 export const logger = {
   log: (...args: any[]) => {
     if (isDevelopment) {
@@ -24,4 +23,3 @@ export const logger = {
     }
   }
 };
-

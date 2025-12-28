@@ -6,7 +6,6 @@ import { FaDog } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import Cart from './Cart';
 import { useCart } from '../context/CartContext';
-
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -14,29 +13,23 @@ const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { cartCount } = useCart();
-
   useEffect(() => {
     const handleAuthStateChange = (event: CustomEvent) => {
       setIsLoggedIn(!!event.detail);
     };
-
     window.addEventListener('authStateChanged', handleAuthStateChange as EventListener);
     setIsLoggedIn(!!user);
-
     return () => {
       window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
     };
   }, [user]);
-
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
   return (
     <>
       <header className={`glass-effect fixed w-full z-50 ${scrolled ? 'py-2 sm:py-3' : 'py-3 sm:py-4'} rounded-b-3xl`}>
@@ -54,7 +47,6 @@ const Header: React.FC = () => {
                 <span className="sm:hidden">Rêves Bleus</span>
               </h1>
             </Link>
-
             <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
               <Link to="/" className="text-gray-600 hover:text-primary transition-colors font-medium text-sm xl:text-base">
                 Accueil
@@ -69,7 +61,6 @@ const Header: React.FC = () => {
                 Contact
               </Link>
             </nav>
-
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button
                 onClick={() => setIsCartOpen(true)}
@@ -82,7 +73,6 @@ const Header: React.FC = () => {
                   </span>
                 )}
               </button>
-
               <div className="hidden md:flex items-center space-x-3 xl:space-x-4">
                 {isLoggedIn && user ? (
                   <>
@@ -117,7 +107,6 @@ const Header: React.FC = () => {
                   </>
                 )}
               </div>
-
               <button
                 className="lg:hidden text-gray-600 focus:outline-none p-2 z-50"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -128,7 +117,6 @@ const Header: React.FC = () => {
             </div>
           </div>
         </div>
-
         {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -211,10 +199,8 @@ const Header: React.FC = () => {
           </motion.div>
         )}
       </header>
-
       {isCartOpen && <Cart onClose={() => setIsCartOpen(false)} />}
     </>
   );
 };
-
 export default Header;

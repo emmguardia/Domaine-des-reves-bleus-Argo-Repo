@@ -1,19 +1,14 @@
-#!/usr/bin/env python3
-"""
-Script simple pour ajouter la colonne default_address à la table users
-"""
+
+
 
 from database import engine
 from sqlalchemy import text
 
 def add_column():
-    """Ajoute la colonne default_address à la table users"""
+    
     try:
         with engine.connect() as conn:
-            conn.execute(text("""
-                ALTER TABLE users 
-                ADD COLUMN default_address TEXT NULL
-            """))
+            conn.execute(text())
             conn.commit()
             print("✅ Colonne 'default_address' ajoutée avec succès!")
     except Exception as e:

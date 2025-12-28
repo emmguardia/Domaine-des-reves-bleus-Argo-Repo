@@ -1,8 +1,5 @@
-#!/usr/bin/env python3
-"""
-Script d'initialisation de la base de données
-Crée les tables, l'admin et les produits si ils n'existent pas
-"""
+
+
 
 import bcrypt
 from datetime import datetime
@@ -11,12 +8,12 @@ from models import User, Admin, Product, Cart, CartItem, Order, OrderItem, Addre
 from sqlalchemy import text, inspect
 
 def init_database():
-    """Crée toutes les tables de la base de données"""
+    
     Base.metadata.create_all(bind=engine)
     print("✅ Tables créées avec succès!")
 
 def migrate_add_default_address():
-    """Ajoute la colonne default_address à la table users si elle n'existe pas"""
+    
     try:
         inspector = inspect(engine)
         columns = [col['name'] for col in inspector.get_columns('users')]
@@ -25,39 +22,36 @@ def migrate_add_default_address():
             print("ℹ️  La colonne 'default_address' existe déjà dans la table 'users'")
             return
         
-        # Ajouter la colonne
+        
         with engine.connect() as conn:
-            conn.execute(text("""
-                ALTER TABLE users 
-                ADD COLUMN default_address TEXT NULL
-            """))
+            conn.execute(text())
             conn.commit()
             print("✅ Colonne 'default_address' ajoutée avec succès à la table 'users'")
     except Exception as e:
         print(f"⚠️  Erreur lors de la migration default_address: {str(e)}")
-        # Ne pas bloquer l'initialisation si la migration échoue
+        
 
 def create_admin():
-    """Crée l'admin Laurence si il n'existe pas"""
+    
     db = next(get_db())
     
     username = "Laurence"
     password = "ErH126Kf2.cv"
     
-    # Vérifier si l'admin existe déjà
+    
     existing_admin = db.query(Admin).filter(Admin.username == username).first()
     if existing_admin:
         print(f"ℹ️  L'administrateur '{username}' existe déjà, aucune action nécessaire")
         return
     
-    # Hasher le mot de passe
+    
     password_bytes = password.encode('utf-8')[:72]
     password_truncated = password_bytes.decode('utf-8', errors='ignore')
     salt = bcrypt.gensalt(rounds=12)
     hashed = bcrypt.hashpw(password_truncated.encode('utf-8'), salt)
     hashed_password = hashed.decode('utf-8')
     
-    # Créer l'admin
+    
     admin = Admin(
         username=username,
         password=hashed_password
@@ -70,7 +64,7 @@ def create_admin():
     print(f"✅ Administrateur '{username}' créé avec succès!")
 
 def create_categories():
-    """Crée les catégories de base si elles n'existent pas"""
+    
     db = next(get_db())
     
     categories_data = [
@@ -106,10 +100,10 @@ def create_categories():
         print(f"ℹ️  Toutes les catégories existent déjà, aucune action nécessaire")
 
 def create_products():
-    """Crée les produits si ils n'existent pas"""
+    
     db = next(get_db())
     
-    # Vérifier si des produits existent déjà
+    
     existing_products = db.query(Product).count()
     if existing_products > 0:
         print(f"ℹ️  {existing_products} produit(s) existent déjà, aucune action nécessaire")
@@ -342,7 +336,7 @@ def create_products():
         }
     ]
     
-    # Créer les produits
+    
     for product_data in products_data:
         product = Product(**product_data)
         db.add(product)
@@ -351,29 +345,29 @@ def create_products():
     print(f"✅ {len(products_data)} produit(s) créé(s) avec succès!")
 
 def main():
-    """Fonction principale d'initialisation"""
+    
     print("🚀 Initialisation de la base de données...")
     print("")
     
-    # Créer les tables
+    
     init_database()
     
-    # Migration: Ajouter default_address si nécessaire
+    
     print("")
     print("🔄 Vérification des migrations...")
     migrate_add_default_address()
     
-    # Créer l'admin
+    
     print("")
     print("📝 Création de l'administrateur...")
     create_admin()
     
-    # Créer les catégories
+    
     print("")
     print("📁 Création des catégories...")
     create_categories()
     
-    # Créer les produits
+    
     print("")
     print("📦 Création des produits...")
     create_products()

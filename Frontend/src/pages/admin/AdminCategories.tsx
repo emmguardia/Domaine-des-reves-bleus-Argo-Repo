@@ -4,14 +4,12 @@ import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { getApiUrl } from '../../utils/security';
 import { secureStorage } from '../../utils/security';
 import { logger } from '../../utils/logger';
-
 interface Category {
   id: number;
   name: string;
   description: string | null;
   createdAt: string;
 }
-
 function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,13 +19,10 @@ function AdminCategories() {
     name: '',
     description: '',
   });
-
   const API_URL = getApiUrl();
-
   useEffect(() => {
     fetchCategories();
   }, []);
-
   const fetchCategories = async () => {
     try {
       const token = secureStorage.getItem('adminToken');
@@ -36,7 +31,6 @@ function AdminCategories() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
@@ -47,7 +41,6 @@ function AdminCategories() {
       setLoading(false);
     }
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -55,9 +48,7 @@ function AdminCategories() {
       const url = editingCategory
         ? `${API_URL}/api/admin/categories/${editingCategory.id}`
         : `${API_URL}/api/admin/categories/`;
-
       const method = editingCategory ? 'PUT' : 'POST';
-
       const response = await fetch(url, {
         method,
         headers: {
@@ -66,7 +57,6 @@ function AdminCategories() {
         },
         body: JSON.stringify(formData),
       });
-
       if (response.ok) {
         setShowModal(false);
         setEditingCategory(null);
@@ -77,10 +67,8 @@ function AdminCategories() {
       logger.error('Erreur:', error);
     }
   };
-
   const handleDelete = async (id: number) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ?')) return;
-
     try {
       const token = secureStorage.getItem('adminToken');
       const response = await fetch(`${API_URL}/api/admin/categories/${id}`, {
@@ -89,7 +77,6 @@ function AdminCategories() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         fetchCategories();
       } else {
@@ -100,7 +87,6 @@ function AdminCategories() {
       logger.error('Erreur:', error);
     }
   };
-
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
     setFormData({
@@ -109,7 +95,6 @@ function AdminCategories() {
     });
     setShowModal(true);
   };
-
   if (loading) {
     return (
       <div className="p-8">
@@ -119,7 +104,6 @@ function AdminCategories() {
       </div>
     );
   }
-
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
@@ -135,7 +119,6 @@ function AdminCategories() {
           <FaPlus /> Ajouter une catégorie
         </button>
       </div>
-
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50">
@@ -169,7 +152,6 @@ function AdminCategories() {
           </tbody>
         </table>
       </div>
-
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-md w-full">
@@ -221,6 +203,4 @@ function AdminCategories() {
     </div>
   );
 }
-
 export default AdminCategories;
-

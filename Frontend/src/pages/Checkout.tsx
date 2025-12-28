@@ -14,7 +14,6 @@ import { Elements } from '@stripe/react-stripe-js';
 import { FaPhoneAlt } from 'react-icons/fa';
 import ShippingInfo from '../components/ShippingInfo';
 import AddressAutocomplete from '../components/AddressAutocomplete';
-
 interface FormData {
   firstName: string;
   lastName: string;
@@ -24,12 +23,10 @@ interface FormData {
   packageSize: string;
   deliveryInstructions: string;
 }
-
 interface AddressValidation {
   isValid: boolean;
   message: string;
 }
-
 const CheckoutForm: React.FC = () => {
   const stripe = useStripe();
   const elements = useElements();
@@ -46,9 +43,7 @@ const CheckoutForm: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const paymentElementRef = useRef<HTMLDivElement>(null);
-
   const isAuthenticated = !!user;
-
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login?redirect=checkout');
@@ -58,13 +53,11 @@ const CheckoutForm: React.FC = () => {
       navigate('/products');
     }
   }, [isAuthenticated, navigate, cartItems.length, cartTotal]);
-
   const getPackageSize = (itemCount: number): string => {
     if (itemCount <= 2) return 'small';
     if (itemCount <= 4) return 'medium';
     return 'large';
   };
-
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -78,14 +71,12 @@ const CheckoutForm: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [isPaymentElementMounted, setIsPaymentElementMounted] = useState(false);
   const [saveAddress, setSaveAddress] = useState(false);
-
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
       packageSize: getPackageSize(cartItems.length)
     }));
   }, [cartItems.length]);
-
   useEffect(() => {
     if (elements && stripe) {
       const timer = setTimeout(() => {
@@ -95,7 +86,6 @@ const CheckoutForm: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [elements, stripe]);
-
   useEffect(() => {
     if (user && isAuthenticated) {
       setFormData(prev => ({
@@ -108,27 +98,21 @@ const CheckoutForm: React.FC = () => {
       }));
     }
   }, [user, isAuthenticated]);
-
   const validateAddress = (address: string): AddressValidation => {
     if (!address) return { isValid: false, message: 'Adresse requise' };
     if (address.length < 10) return { isValid: false, message: 'Adresse trop courte' };
-
     const postalCodeRegex = /\b\d{5}\b/;
     if (!postalCodeRegex.test(address)) {
       return { isValid: false, message: 'Code postal requis (5 chiffres)' };
     }
-
     const cityRegex = /\b[A-Za-zÀ-ÿ\s-]{2,}\b/;
     const cityMatch = address.match(cityRegex);
     if (!cityMatch) {
       return { isValid: false, message: 'Nom de ville requis' };
     }
-    
     return { isValid: true, message: 'Adresse valide' };
   };
-
   const addressValidation = validateAddress(formData.address);
-
   const resetPrefilledInfo = () => {
     setFormData({
       firstName: '',
@@ -140,7 +124,6 @@ const CheckoutForm: React.FC = () => {
       deliveryInstructions: '',
     });
   };
-
   const restorePrefilledInfo = () => {
     if (user && isAuthenticated) {
       setFormData(prev => ({
@@ -153,11 +136,9 @@ const CheckoutForm: React.FC = () => {
       }));
     }
   };
-
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     let processedValue = value;
-
     if (name === 'firstName' || name === 'lastName') {
       processedValue = value.replace(/[^a-zA-Z\s\-àáâãäåçèéêëìíîïñòóôõöùúûüýÿÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝŸ']/g, '');
     } else if (name === 'phone') {
@@ -172,29 +153,24 @@ const CheckoutForm: React.FC = () => {
       }
       processedValue = formattedValue;
     }
-
     setFormData(prev => ({ ...prev, [name]: processedValue }));
   };
-
   const handleSubmitOrder = async (e: FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) { 
       setMessage("Le module de paiement n'est pas encore prêt. Veuillez patienter.");
       return; 
     }
-
     if (!isPaymentElementMounted) {
       setMessage("L'élément de paiement n'est pas encore chargé. Veuillez patienter.");
       return;
     }
-
     if (!isAuthenticated) {
       navigate('/login?redirect=checkout');
       return;
     }
     setIsProcessing(true);
     setMessage(null);
-
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
@@ -211,12 +187,10 @@ const CheckoutForm: React.FC = () => {
         },
         redirect: 'always'
       });
-
       if (error) {
         setMessage(error.message || "Une erreur est survenue lors du paiement.");
         setIsProcessing(false);
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        // Enregistrer l'adresse si la checkbox est cochée
         if (saveAddress && formData.address) {
           try {
             const token = secureStorage.getItem('token');
@@ -230,7 +204,6 @@ const CheckoutForm: React.FC = () => {
               body: JSON.stringify({ address: formData.address })
             });
           } catch (err) {
-            // Ignorer l'erreur, le paiement a réussi
           }
         }
         navigate('/order-confirmation?payment_intent_status=succeeded');
@@ -240,7 +213,6 @@ const CheckoutForm: React.FC = () => {
       setIsProcessing(false);
     }
   };
-
   return (
     <main className="pt-24 pb-12">
       <div className="container mx-auto px-6">
@@ -253,7 +225,6 @@ const CheckoutForm: React.FC = () => {
             Finaliser la Commande
           </h1>
         </motion.div>
-
         <div className="grid md:grid-cols-2 gap-12">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -311,7 +282,6 @@ const CheckoutForm: React.FC = () => {
                     <span>Sous-total</span>
                     <span>{cartSubtotal.toFixed(2)} €</span>
                   </div>
-                  
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm text-gray-600">
                       <span>Frais de port La Poste</span>
@@ -345,7 +315,6 @@ const CheckoutForm: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  
                   <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span>Total</span>
                     <span>
@@ -360,19 +329,16 @@ const CheckoutForm: React.FC = () => {
               </>
             )}
           </motion.div>
-
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             className="bg-white p-6 rounded-2xl shadow-lg"
           >
             <h2 className="text-2xl font-semibold mb-6 border-b pb-3">Informations de Livraison</h2>
-            
             <ShippingInfo 
               shippingCalculation={shippingCalculation}
               isCalculating={isCalculatingShipping}
             />
-            
             {isAuthenticated && user && (
               <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center justify-between mb-3">
@@ -401,7 +367,6 @@ const CheckoutForm: React.FC = () => {
                 </p>
               </div>
             )}
-            
             <form onSubmit={handleSubmitOrder} className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -441,7 +406,6 @@ const CheckoutForm: React.FC = () => {
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -486,7 +450,6 @@ const CheckoutForm: React.FC = () => {
                    </div>
                 </div>
               </div>
-
               <div>
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                   Adresse de livraison complète
@@ -509,7 +472,6 @@ const CheckoutForm: React.FC = () => {
                     }
                   }}
                 />
-                
                 <div className="mt-2 space-y-1">
                   <p className="text-xs text-gray-500">
                     💡 Commencez à taper pour voir des suggestions d'adresse
@@ -522,7 +484,6 @@ const CheckoutForm: React.FC = () => {
                   )}
                 </div>
               </div>
-
               <div>
                 <label htmlFor="deliveryInstructions" className="block text-sm font-medium text-gray-700 mb-1">
                    Instructions de livraison <span className="text-gray-500">(Optionnel)</span>
@@ -536,7 +497,6 @@ const CheckoutForm: React.FC = () => {
                   placeholder="Ex: Laisser le colis au gardien, code porte 1234, ne pas sonner avant 9h..."
                 ></textarea>
               </div>
-
               <div className="border-t pt-5">
                  <h3 className="text-lg font-medium mb-3">Informations de Paiement</h3>
                  <div ref={paymentElementRef}>
@@ -561,7 +521,6 @@ const CheckoutForm: React.FC = () => {
                    />
                  </div>
               </div>
-
               {addressValidation.isValid && (
                 <div className="mt-4 flex items-center">
                   <input
@@ -576,7 +535,6 @@ const CheckoutForm: React.FC = () => {
                   </label>
                 </div>
               )}
-
               <button
                 type="submit"
                 className={`button-primary w-full mt-4 ${isProcessing || !stripe || !elements || !isPaymentElementMounted || !addressValidation.isValid ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -602,7 +560,6 @@ const CheckoutForm: React.FC = () => {
     </main>
   );
 };
-
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51RGyN2FPffgTXsMQPJKAbFWVpexGFKoGVXwqVkMYVuYXF4C4D20Qjh6hxt1EgcfQJz834fd5El7AwxOIIfHPuSH600wxmrPm6A',
   {
@@ -610,7 +567,6 @@ const stripePromise = loadStripe(
     locale: 'fr'
   }
 );
-
 const CheckoutPage: React.FC = () => {
   const [clientSecret, setClientSecret] = useState<string>('');
   const [loadingSecret, setLoadingSecret] = useState(true);
@@ -618,21 +574,17 @@ const CheckoutPage: React.FC = () => {
   const { cartTotal, cartItems } = useCart();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
   const isAuthenticated = !!user;
   const token = user?.token || secureStorage.getItem('token');
-
   useEffect(() => {
     if (cartItems.length === 0 || cartTotal <= 0) {
       navigate('/products');
       return;
     }
-    
     if (!isAuthenticated) {
       navigate('/login?redirect=checkout');
       return;
     }
-    
     setLoadingSecret(true);
     setErrorSecret(null);
     fetch(`${getApiUrl()}/api/payment/create-payment-intent`, {
@@ -652,10 +604,8 @@ const CheckoutPage: React.FC = () => {
             logout();
             return Promise.reject(new Error('Session expirée, veuillez vous reconnecter'));
           }
-          
           const contentType = res.headers.get('content-type') || '';
           const isJson = contentType.includes('application/json');
-          
           if (!res.ok) {
             if (isJson) {
               try {
@@ -667,11 +617,9 @@ const CheckoutPage: React.FC = () => {
             }
             return res.text().then(text => Promise.reject(new Error(`Erreur ${res.status}: ${text.substring(0, 100)}`)));
           }
-          
           if (!isJson) {
             return res.text().then(text => Promise.reject(new Error(`Réponse invalide du serveur (${contentType}): ${text.substring(0, 100)}`)));
           }
-          
           try {
             return await res.json();
           } catch {
@@ -692,7 +640,6 @@ const CheckoutPage: React.FC = () => {
           setLoadingSecret(false);
       });
   }, [cartTotal, cartItems.length, isAuthenticated, token, logout, navigate]);
-
   const appearance = {
     theme: 'stripe' as const,
     variables: {
@@ -705,14 +652,12 @@ const CheckoutPage: React.FC = () => {
       borderRadius: '8px',
     },
   };
-
   const options: StripeElementsOptions = clientSecret ? {
     clientSecret,
     appearance,
     locale: 'fr',
     loader: 'auto',
   } : { appearance, locale: 'fr', loader: 'auto' };
-
   if (loadingSecret) {
     return (
       <div className="pt-48 text-center">
@@ -720,7 +665,6 @@ const CheckoutPage: React.FC = () => {
       </div>
     );
   }
-
   if (errorSecret) {
      return (
        <div className="pt-48 text-center text-red-600">
@@ -729,7 +673,6 @@ const CheckoutPage: React.FC = () => {
        </div>
      );
   }
-
   if (!clientSecret) {
     return (
       <div className="pt-48 text-center text-red-600">
@@ -737,13 +680,10 @@ const CheckoutPage: React.FC = () => {
       </div>
     );
   }
-
   return (
     <Elements key={clientSecret || 'no-secret'} stripe={stripePromise} options={options}>
       <CheckoutForm />
     </Elements>
   );
 };
-
 export default CheckoutPage;
-

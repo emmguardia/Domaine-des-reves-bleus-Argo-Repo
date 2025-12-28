@@ -3,7 +3,6 @@ import { getApiUrl } from '../utils/security';
 import { secureStorage } from '../utils/security';
 import { logger } from '../utils/logger';
 import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt } from 'react-icons/fa';
-
 interface Address {
   id: number;
   label: string;
@@ -16,12 +15,10 @@ interface Address {
   country: string;
   isDefault: boolean;
 }
-
 interface AddressManagerProps {
   onSelect?: (address: Address) => void;
   showSelectButton?: boolean;
 }
-
 export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSelectButton = false }) => {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,11 +35,9 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
     country: 'France',
     isDefault: false
   });
-
   useEffect(() => {
     fetchAddresses();
   }, []);
-
   const fetchAddresses = async () => {
     try {
       const token = secureStorage.getItem('token');
@@ -50,13 +45,11 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
         setLoading(false);
         return;
       }
-
       const response = await fetch(`${getApiUrl()}/api/addresses/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const data = await response.json();
         setAddresses(data);
@@ -67,19 +60,15 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
       setLoading(false);
     }
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const token = secureStorage.getItem('token');
       if (!token) return;
-
       const url = editingAddress
         ? `${getApiUrl()}/api/addresses/${editingAddress.id}`
         : `${getApiUrl()}/api/addresses/`;
-
       const method = editingAddress ? 'PUT' : 'POST';
-
       const response = await fetch(url, {
         method,
         headers: {
@@ -98,7 +87,6 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
           isDefault: formData.isDefault
         }),
       });
-
       if (response.ok) {
         setShowForm(false);
         setEditingAddress(null);
@@ -119,21 +107,17 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
       logger.error('Erreur:', err);
     }
   };
-
   const handleDelete = async (id: number) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette adresse ?')) return;
-
     try {
       const token = secureStorage.getItem('token');
       if (!token) return;
-
       const response = await fetch(`${getApiUrl()}/api/addresses/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         fetchAddresses();
       }
@@ -141,7 +125,6 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
       logger.error('Erreur:', err);
     }
   };
-
   const handleEdit = (address: Address) => {
     setEditingAddress(address);
     setFormData({
@@ -157,11 +140,9 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
     });
     setShowForm(true);
   };
-
   if (loading) {
     return <div className="text-center py-8">Chargement...</div>;
   }
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -187,7 +168,6 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
           <FaPlus /> Ajouter une adresse
         </button>
       </div>
-
       {showForm && (
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h4 className="text-lg font-semibold mb-4">
@@ -300,7 +280,6 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
           </form>
         </div>
       )}
-
       <div className="space-y-3">
         {addresses.length === 0 ? (
           <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
@@ -362,4 +341,3 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
     </div>
   );
 };
-

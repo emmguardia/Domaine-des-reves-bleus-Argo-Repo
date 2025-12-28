@@ -4,9 +4,6 @@ import { FaShoppingCart, FaExclamationTriangle } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import { getApiUrl } from '../utils/security';
 import { logger } from '../utils/logger';
-
-// Ne pas appeler getApiUrl() au niveau du module, l'appeler dans les fonctions
-
 interface Product {
   _id?: string;
   id: string;
@@ -22,7 +19,6 @@ interface Product {
   isNew?: boolean;
   isPlaceholder?: boolean;
 }
-
 const Products: React.FC = () => {
   const { addToCart } = useCart();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -31,15 +27,12 @@ const Products: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedVolumes, setSelectedVolumes] = useState<{ [key: string]: string }>({});
   const [selectedFragrances, setSelectedFragrances] = useState<{ [key: string]: string }>({});
-  
   useEffect(() => {
     fetchProducts();
   }, []);
-
   const fetchProducts = async () => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
-    
     try {
       const apiUrl = getApiUrl();
       const fullUrl = apiUrl ? `${apiUrl}/api/products/` : '/api/products/';
@@ -53,13 +46,11 @@ const Products: React.FC = () => {
       });
       clearTimeout(timeoutId);
       logger.log('Réponse reçue');
-      
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const data = await response.json();
           logger.log('Produits reçus:', data.length, 'produits');
-          
           if (Array.isArray(data) && data.length > 0) {
             const productsWithId = data.map((product: any) => ({
               ...product,
@@ -79,7 +70,6 @@ const Products: React.FC = () => {
       } else {
         const errorText = await response.text().catch(() => 'Impossible de lire la réponse');
         const isCloudflareError = errorText.includes('Cloudflare') || errorText.includes('Bad gateway');
-        
         if (response.status === 502) {
           const errorMsg = isCloudflareError 
             ? 'Le serveur backend n\'est pas accessible. Cloudflare ne peut pas joindre le serveur.'
@@ -115,12 +105,10 @@ const Products: React.FC = () => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     if (allProducts.length > 0) {
       const initialVolumes: { [key: string]: string } = {};
       const initialFragrances: { [key: string]: string } = {};
-      
       allProducts.forEach((product) => {
         if (product.volumes) {
           const volumesObj = product.volumes instanceof Map 
@@ -139,66 +127,54 @@ const Products: React.FC = () => {
           }
         }
       });
-      
       setSelectedVolumes(initialVolumes);
       setSelectedFragrances(initialFragrances);
     }
   }, [allProducts]);
-
   const categories = useMemo(() => {
     const uniqueCategories = new Set(allProducts.map(p => p.category));
     return ['Tous', ...Array.from(uniqueCategories)];
   }, [allProducts]);
-
   const [selectedCategory, setSelectedCategory] = useState('Tous');
-
   const filteredProducts = useMemo(() => {
     if (selectedCategory === 'Tous') {
       return allProducts;
     }
     return allProducts.filter(product => product.category === selectedCategory);
   }, [selectedCategory, allProducts]);
-
   const handleVolumeChange = (productId: string, volume: string) => {
     setSelectedVolumes(prev => ({
       ...prev,
       [productId]: volume
     }));
   };
-
   const handleFragranceChange = (productId: string, fragrance: string) => {
     setSelectedFragrances(prev => ({
       ...prev,
       [productId]: fragrance
     }));
   };
-
   const handleAddToCart = (product: Product) => {
     const selectedVolume = selectedVolumes[product.id];
     const selectedFragrance = selectedFragrances[product.id];
     let finalPrice = product.price;
     let finalName = product.name;
     let finalWeight = product.weightGrams || 100;
-
     if (product.volumes && selectedVolume) {
       const volumesObj = product.volumes instanceof Map 
         ? Object.fromEntries(product.volumes)
         : product.volumes;
-      
       if (volumesObj[selectedVolume]) {
         finalPrice = volumesObj[selectedVolume];
         finalName = `${product.name} (${selectedVolume})`;
-
         if (selectedVolume === '1L') {
           finalWeight = (product.weightGrams || 100) * 4;
         }
       }
     }
-
     if (product.fragrances && selectedFragrance) {
       finalName = `${product.name} - ${selectedFragrance}`;
     }
-
     addToCart({
       id: product.id,
       name: finalName,
@@ -209,7 +185,6 @@ const Products: React.FC = () => {
       weightGrams: finalWeight
     });
   };
-
   const getProductPrice = (product: Product): number => {
     if (product.volumes && selectedVolumes[product.id]) {
       const volumesObj = product.volumes instanceof Map 
@@ -219,7 +194,6 @@ const Products: React.FC = () => {
     }
     return product.price;
   };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 flex items-center justify-center">
@@ -230,7 +204,6 @@ const Products: React.FC = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -242,7 +215,6 @@ const Products: React.FC = () => {
             Découvrez notre gamme complète de produits professionnels pour le toilettage de vos compagnons à quatre pattes
           </p>
         </div>
-
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           {categories.map((category) => (
             <button
@@ -258,7 +230,6 @@ const Products: React.FC = () => {
             </button>
           ))}
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           <AnimatePresence>
             {filteredProducts.map((product) => (
@@ -300,7 +271,6 @@ const Products: React.FC = () => {
                     </div>
                   )}
                 </div>
-
                 <div className="p-4">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                     {product.name}
@@ -308,7 +278,6 @@ const Products: React.FC = () => {
                   <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                     {product.description}
                   </p>
-
                   {product.volumes && (
                     <div className="mb-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -331,7 +300,6 @@ const Products: React.FC = () => {
                       </div>
                     </div>
                   )}
-
                   {product.fragrances && (
                     <div className="mb-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -355,7 +323,6 @@ const Products: React.FC = () => {
                       )}
                     </div>
                   )}
-
                   <div className="flex items-center justify-between">
                     <div className="text-2xl font-bold text-blue-600">
                       {getProductPrice(product).toFixed(2)} €
@@ -378,7 +345,6 @@ const Products: React.FC = () => {
             ))}
           </AnimatePresence>
         </div>
-
         {error && (
           <div className="text-center py-12 px-4">
             <FaExclamationTriangle className="mx-auto text-red-500 text-4xl mb-4" />
@@ -393,7 +359,6 @@ const Products: React.FC = () => {
             </p>
           </div>
         )}
-
         {!loading && !error && filteredProducts.length === 0 && allProducts.length === 0 && (
           <div className="text-center py-12">
             <FaExclamationTriangle className="mx-auto text-yellow-500 text-4xl mb-4" />
@@ -405,7 +370,6 @@ const Products: React.FC = () => {
             </p>
           </div>
         )}
-        
         {!loading && filteredProducts.length === 0 && allProducts.length > 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">
@@ -414,7 +378,6 @@ const Products: React.FC = () => {
           </div>
         )}
       </div>
-
       {selectedImage && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto"
@@ -444,6 +407,4 @@ const Products: React.FC = () => {
     </div>
   );
 };
-
 export default Products;
-

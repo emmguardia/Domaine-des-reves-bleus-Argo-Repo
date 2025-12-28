@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-
 const PolitiqueConfidentialite: React.FC = () => {
   return (
     <main className="pt-24 pb-12">
@@ -13,7 +12,6 @@ const PolitiqueConfidentialite: React.FC = () => {
           <h1 className="text-4xl font-bold text-gray-800 mb-8">
             Politique de Confidentialité
           </h1>
-          
           <div className="space-y-8 text-gray-700">
             <div className="bg-blue-50 p-6 rounded-lg border-l-4 border-blue-500">
               <p className="text-gray-700 leading-relaxed">
@@ -23,7 +21,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                 La présente politique de confidentialité décrit la manière dont Domaine des Rêves Bleus collecte, utilise et protège vos données personnelles conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés.
               </p>
             </div>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">1. Responsable du traitement</h2>
               <ul className="space-y-2 text-gray-600">
@@ -35,13 +32,11 @@ const PolitiqueConfidentialite: React.FC = () => {
                 <li><strong>Numéro SIRET :</strong> 844 066 001 00018</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">2. Données personnelles collectées</h2>
               <p className="text-gray-600 mb-4 leading-relaxed">
                 Nous collectons les données personnelles suivantes :
               </p>
-              
               <div className="bg-gray-50 p-6 rounded-lg mb-4">
                 <h3 className="font-semibold text-gray-800 mb-3">2.1. Données collectées lors de l'inscription</h3>
                 <ul className="space-y-2 text-gray-600 list-disc list-inside">
@@ -52,7 +47,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                   <li>Mot de passe (stocké de manière sécurisée et cryptée)</li>
                 </ul>
               </div>
-
               <div className="bg-gray-50 p-6 rounded-lg mb-4">
                 <h3 className="font-semibold text-gray-800 mb-3">2.2. Données collectées lors des commandes</h3>
                 <ul className="space-y-2 text-gray-600 list-disc list-inside">
@@ -61,7 +55,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                   <li>Historique des commandes</li>
                 </ul>
               </div>
-
               <div className="bg-gray-50 p-6 rounded-lg mb-4">
                 <h3 className="font-semibold text-gray-800 mb-3">2.3. Données collectées via le formulaire de contact</h3>
                 <ul className="space-y-2 text-gray-600 list-disc list-inside">
@@ -70,7 +63,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                   <li>Message et contenu de la demande</li>
                 </ul>
               </div>
-
               <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="font-semibold text-gray-800 mb-3">2.4. Données techniques collectées automatiquement</h3>
                 <ul className="space-y-2 text-gray-600 list-disc list-inside">
@@ -81,7 +73,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                 </ul>
               </div>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">3. Finalités du traitement</h2>
               <p className="text-gray-600 mb-4 leading-relaxed">
@@ -97,7 +88,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                 <li><strong>Sécurité :</strong> Prévention de la fraude et sécurisation du site</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">4. Base légale du traitement</h2>
               <p className="text-gray-600 mb-4 leading-relaxed">
@@ -110,10 +100,8 @@ const PolitiqueConfidentialite: React.FC = () => {
                 <li><strong>Les obligations légales :</strong> Pour la conservation des données comptables et fiscales</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">5. Stockage et sécurité des données</h2>
-              
               <div className="bg-gray-50 p-6 rounded-lg mb-4">
                 <h3 className="font-semibold text-gray-800 mb-3">5.1. Stockage des données</h3>
                 <p className="text-gray-600 mb-2 leading-relaxed">
@@ -125,7 +113,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                   pour maintenir votre session de connexion. Ces données sont automatiquement supprimées lors de la déconnexion.
                 </p>
               </div>
-
               <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="font-semibold text-gray-800 mb-3">5.2. Mesures de sécurité</h3>
                 <p className="text-gray-600 mb-2 leading-relaxed">
@@ -140,7 +127,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                 </ul>
               </div>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">6. Durée de conservation des données</h2>
               <ul className="space-y-2 text-gray-600">
@@ -151,7 +137,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                 <li><strong>Cookies et données de navigation :</strong> Conservés selon la durée de vie des cookies (voir section Cookies)</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">7. Partage et transmission des données</h2>
               <p className="text-gray-600 mb-4 leading-relaxed">
@@ -167,7 +152,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                 <li><strong>Obligations légales :</strong> En cas d'obligation légale ou de réquisition judiciaire</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">8. Cookies et technologies similaires</h2>
               <p className="text-gray-600 mb-4 leading-relaxed">
@@ -182,13 +166,11 @@ const PolitiqueConfidentialite: React.FC = () => {
                 Vous pouvez configurer votre navigateur pour refuser les cookies, mais cela peut affecter certaines fonctionnalités du site.
               </p>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">9. Vos droits</h2>
               <p className="text-gray-600 mb-4 leading-relaxed">
                 Conformément au RGPD et à la loi Informatique et Libertés, vous disposez des droits suivants :
               </p>
-              
               <div className="bg-gray-50 p-6 rounded-lg space-y-4">
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2">9.1. Droit d'accès</h3>
@@ -196,42 +178,36 @@ const PolitiqueConfidentialite: React.FC = () => {
                     Vous pouvez accéder à toutes vos données personnelles en vous connectant à votre compte ou en nous contactant.
                   </p>
                 </div>
-
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2">9.2. Droit de rectification</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Vous pouvez modifier vos données personnelles directement depuis votre compte ou en nous contactant.
                   </p>
                 </div>
-
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2">9.3. Droit à l'effacement</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Vous pouvez demander la suppression de vos données personnelles, sous réserve des obligations légales de conservation.
                   </p>
                 </div>
-
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2">9.4. Droit à la portabilité</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Vous pouvez demander à recevoir vos données dans un format structuré et couramment utilisé.
                   </p>
                 </div>
-
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2">9.5. Droit d'opposition</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Vous pouvez vous opposer au traitement de vos données pour des motifs légitimes.
                   </p>
                 </div>
-
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2">9.6. Droit à la limitation</h3>
                   <p className="text-gray-600 leading-relaxed">
                     Vous pouvez demander la limitation du traitement de vos données dans certains cas.
                   </p>
                 </div>
-
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2">9.7. Droit de retirer votre consentement</h3>
                   <p className="text-gray-600 leading-relaxed">
@@ -239,7 +215,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                   </p>
                 </div>
               </div>
-
               <div className="bg-blue-50 p-6 rounded-lg mt-4">
                 <p className="text-gray-700 leading-relaxed">
                   <strong>Pour exercer vos droits :</strong> Contactez-nous par email à <a href="mailto:domainedesrevesbleus@orange.fr" className="text-blue-600 hover:underline">domainedesrevesbleus@orange.fr</a> 
@@ -247,7 +222,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                 </p>
               </div>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">10. Réclamation auprès de la CNIL</h2>
               <p className="text-gray-600 leading-relaxed">
@@ -255,12 +229,11 @@ const PolitiqueConfidentialite: React.FC = () => {
                 Commission Nationale de l'Informatique et des Libertés (CNIL) :
               </p>
               <ul className="space-y-2 text-gray-600 mt-4">
-                <li><strong>Site web :</strong> <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">www.cnil.fr</a></li>
+                <li><strong>Site web :</strong> <a href="https:
                 <li><strong>Téléphone :</strong> 01 53 73 22 22</li>
                 <li><strong>Adresse :</strong> 3 Place de Fontenoy - TSA 80715, 75334 Paris Cedex 07</li>
               </ul>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">11. Modifications de la politique de confidentialité</h2>
               <p className="text-gray-600 leading-relaxed">
@@ -269,7 +242,6 @@ const PolitiqueConfidentialite: React.FC = () => {
                 Nous vous encourageons à consulter régulièrement cette page pour prendre connaissance des éventuelles modifications.
               </p>
             </section>
-
             <section>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">12. Contact</h2>
               <p className="text-gray-600 mb-4 leading-relaxed">
@@ -288,6 +260,4 @@ const PolitiqueConfidentialite: React.FC = () => {
     </main>
   );
 };
-
 export default PolitiqueConfidentialite;
-

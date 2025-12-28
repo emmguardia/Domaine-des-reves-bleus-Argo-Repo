@@ -4,14 +4,12 @@ import { FaCheck, FaTruck, FaTimes } from 'react-icons/fa';
 import { getApiUrl } from '../../utils/security';
 import { secureStorage } from '../../utils/security';
 import { logger } from '../../utils/logger';
-
 interface OrderItem {
   name: string;
   price: number;
   quantity: number;
   image: string;
 }
-
 interface Order {
   _id: string;
   paymentIntentId: string;
@@ -36,31 +34,25 @@ interface Order {
     email: string;
   };
 }
-
 function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
-
   const API_URL = getApiUrl();
-
   useEffect(() => {
     fetchOrders();
   }, [filter]);
-
   const fetchOrders = async () => {
     try {
       const token = secureStorage.getItem('adminToken');
       const url = filter !== 'all'
         ? `${API_URL}/api/admin/orders?status=${filter}`
         : `${API_URL}/api/admin/orders`;
-
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -78,7 +70,6 @@ function AdminOrders() {
       setLoading(false);
     }
   };
-
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       const token = secureStorage.getItem('adminToken');
@@ -90,7 +81,6 @@ function AdminOrders() {
         },
         body: JSON.stringify({ status: newStatus }),
       });
-
       if (response.ok) {
         fetchOrders();
       }
@@ -98,12 +88,10 @@ function AdminOrders() {
       console.error('Erreur lors de la mise à jour du statut:', error);
     }
   };
-
   const deleteOrder = async (orderId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) {
       return;
     }
-
     try {
       const token = secureStorage.getItem('adminToken');
       const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
@@ -112,7 +100,6 @@ function AdminOrders() {
           'Authorization': `Bearer ${token}`,
         },
       });
-
       if (response.ok) {
         fetchOrders();
       }
@@ -120,7 +107,6 @@ function AdminOrders() {
       console.error('Erreur lors de la suppression de la commande:', error);
     }
   };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid':
@@ -135,7 +121,6 @@ function AdminOrders() {
         return 'bg-yellow-100 text-yellow-700';
     }
   };
-
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'paid':
@@ -150,7 +135,6 @@ function AdminOrders() {
         return 'En attente';
     }
   };
-
   if (loading) {
     return (
       <div className="p-8">
@@ -160,7 +144,6 @@ function AdminOrders() {
       </div>
     );
   }
-
   return (
     <div className="p-8">
       <motion.div
@@ -171,7 +154,6 @@ function AdminOrders() {
         <h1 className="text-3xl font-bold text-gray-900">Gestion des Commandes</h1>
         <p className="text-gray-600 mt-2">Gérez les commandes de vos clients</p>
       </motion.div>
-
       <div className="mb-6 flex space-x-2">
         {['all', 'paid', 'preparing', 'shipped'].map((status) => (
           <button
@@ -187,7 +169,6 @@ function AdminOrders() {
           </button>
         ))}
       </div>
-
       <div className="space-y-4">
         {orders.map((order) => (
           <motion.div
@@ -215,7 +196,6 @@ function AdminOrders() {
                 {getStatusLabel(order.status)}
               </span>
             </div>
-
             <div className="grid md:grid-cols-2 gap-6 mb-4">
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Articles</h4>
@@ -240,7 +220,6 @@ function AdminOrders() {
                   ))}
                 </div>
               </div>
-
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Livraison</h4>
                 <div className="text-sm text-gray-600 space-y-1">
@@ -256,7 +235,6 @@ function AdminOrders() {
                 </div>
               </div>
             </div>
-
             <div className="flex justify-between items-center pt-4 border-t">
               <div>
                 <p className="text-sm text-gray-600">Total</p>
@@ -296,7 +274,6 @@ function AdminOrders() {
             </div>
           </motion.div>
         ))}
-
         {orders.length === 0 && (
           <div className="text-center py-12 bg-white rounded-xl shadow-lg">
             <p className="text-gray-600">Aucune commande trouvée</p>
@@ -306,6 +283,4 @@ function AdminOrders() {
     </div>
   );
 }
-
 export default AdminOrders;
-
