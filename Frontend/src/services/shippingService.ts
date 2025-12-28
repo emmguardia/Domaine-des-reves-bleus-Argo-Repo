@@ -1,4 +1,4 @@
-// Service de calcul des frais de port avec géolocalisation et tarifs personnalisés
+
 import { SHIPPING_CONFIG, getPricingSystem } from '../config/shippingConfig';
 
 export interface ShippingAddress {
@@ -17,12 +17,10 @@ export interface ShippingCalculation {
   estimatedDeliveryDays: number;
 }
 
-// Adresse d'expédition par défaut
 const SENDER_ADDRESS = SHIPPING_CONFIG.senderAddress;
 
-// Tarifs de livraison personnalisés (en euros)
 const SHIPPING_TARIFFS = {
-  // Tarifs par tranches de poids
+
   FRANCE: {
     "0-250g": 5.25,
     "250-500g": 7.35,
@@ -36,15 +34,12 @@ const SHIPPING_TARIFFS = {
   }
 };
 
-// Frais de carton fixe
 const CARTON_FEE = SHIPPING_CONFIG.cartonFee;
 
-/**
- * Convertit une adresse en coordonnées GPS
- */
+
 async function geocodeAddress(address: ShippingAddress): Promise<{ lat: number; lng: number } | null> {
   try {
-    // Utilisation de l'API de géocodage gratuite Nominatim (OpenStreetMap)
+
     const query = `${address.address}, ${address.postalCode} ${address.city}, ${address.country}`;
     const encodedQuery = encodeURIComponent(query);
     
@@ -72,9 +67,7 @@ async function geocodeAddress(address: ShippingAddress): Promise<{ lat: number; 
   }
 }
 
-/**
- * Calcule la distance entre deux points GPS (formule de Haversine)
- */
+
 function calculateDistance(
   lat1: number, lng1: number, 
   lat2: number, lng2: number
@@ -90,9 +83,7 @@ function calculateDistance(
   return R * c;
 }
 
-/**
- * Détermine le tarif de livraison selon le poids
- */
+
 function getLaPostePrice(weightKg: number): number {
   const tariffs = SHIPPING_TARIFFS.FRANCE;
   
@@ -105,46 +96,38 @@ function getLaPostePrice(weightKg: number): number {
   if (weightKg <= 10) return tariffs["5-10kg"];
   if (weightKg <= 15) return tariffs["10-15kg"];
   if (weightKg <= 30) return tariffs["15-30kg"];
-  
-  // Pour plus de 30kg, on considère plusieurs colis
+
   const parcels = Math.ceil(weightKg / 30);
   return parcels * tariffs["15-30kg"];
 }
 
-/**
- * Calcule les frais personnalisés basés sur le poids et la distance
- */
+
 function getCustomPrice(weightKg: number, distanceKm: number): number {
   const config = SHIPPING_CONFIG.customPricing;
-  
-  // Prix de base selon le poids
+
   let price = weightKg * config.basePricePerKg;
-  
-  // Ajouter les frais de distance (au-delà de la distance gratuite)
+
   if (distanceKm > config.freeDistanceKm) {
     const extraDistance = distanceKm - config.freeDistanceKm;
     price += extraDistance * config.pricePerKm;
   }
-  
-  // Appliquer les limites min/max
+
   price = Math.max(price, config.minPrice);
   price = Math.min(price, config.maxPrice);
   
   return Math.round(price * 100) / 100; // Arrondir à 2 décimales
 }
 
-/**
- * Calcule les frais de port basés sur l'adresse de livraison et le poids
- */
+
 export async function calculateShippingCost(
   deliveryAddress: string,
   weightGrams: number,
   useCustomPricing?: boolean
 ): Promise<ShippingCalculation | null> {
-  // Utiliser la configuration par défaut si non spécifié
+
   const useCustom = useCustomPricing ?? (getPricingSystem() === 'custom');
   try {
-    // Parser l'adresse de livraison
+
     const addressParts = deliveryAddress.split(',');
     if (addressParts.length < 2) {
       throw new Error('Adresse de livraison invalide');
@@ -162,8 +145,7 @@ export async function calculateShippingCost(
       postalCode,
       country: 'France'
     };
-    
-    // Géocoder l'adresse de livraison
+
     console.log('Géocodage de l\'adresse de livraison:', shippingAddress);
     const deliveryCoords = await geocodeAddress(shippingAddress);
     if (!deliveryCoords) {
@@ -171,8 +153,7 @@ export async function calculateShippingCost(
       throw new Error('Impossible de géocoder l\'adresse de livraison');
     }
     console.log('Coordonnées de livraison:', deliveryCoords);
-    
-    // Géocoder l'adresse d'expédition
+
     console.log('Géocodage de l\'adresse d\'expédition:', SENDER_ADDRESS);
     const senderCoords = await geocodeAddress(SENDER_ADDRESS);
     if (!senderCoords) {
@@ -180,19 +161,16 @@ export async function calculateShippingCost(
       throw new Error('Impossible de géocoder l\'adresse d\'expédition');
     }
     console.log('Coordonnées d\'expédition:', senderCoords);
-    
-    // Calculer la distance
+
     const distanceKm = calculateDistance(
       senderCoords.lat, senderCoords.lng,
       deliveryCoords.lat, deliveryCoords.lng
     );
     console.log('Distance calculée:', distanceKm, 'km');
-    
-    // Convertir le poids en kg
+
     const weightKg = weightGrams / 1000;
     console.log('Poids total calculé:', weightGrams, 'grammes =', weightKg, 'kg');
-    
-    // Calculer le prix de base selon le système choisi
+
     let basePrice: number;
     if (useCustom) {
       basePrice = getCustomPrice(weightKg, distanceKm);
@@ -201,14 +179,11 @@ export async function calculateShippingCost(
       basePrice = getLaPostePrice(weightKg);
       console.log('Prix de livraison calculé:', basePrice, '€ pour', weightKg, 'kg');
     }
-    
-    // Ajouter les frais de carton
+
     const cartonFee = CARTON_FEE;
-    
-    // Calculer le total
+
     const totalShipping = basePrice + cartonFee;
-    
-    // Estimer les jours de livraison (1-3 jours pour la France métropolitaine)
+
     const estimatedDeliveryDays = distanceKm < 100 ? 1 : distanceKm < 300 ? 2 : 3;
     
     return {
@@ -226,9 +201,7 @@ export async function calculateShippingCost(
   }
 }
 
-/**
- * Calcule les frais de port avec une adresse par défaut (fallback)
- */
+
 export function calculateShippingCostFallback(weightGrams: number): ShippingCalculation {
   const weightKg = weightGrams / 1000;
   const basePrice = getLaPostePrice(weightKg);
@@ -245,9 +218,7 @@ export function calculateShippingCostFallback(weightGrams: number): ShippingCalc
   };
 }
 
-/**
- * Calcule les frais de port avec tarifs personnalisés (basés sur la distance)
- */
+
 export async function calculateCustomShippingCost(
   deliveryAddress: string,
   weightGrams: number
@@ -255,17 +226,13 @@ export async function calculateCustomShippingCost(
   return calculateShippingCost(deliveryAddress, weightGrams, true);
 }
 
-/**
- * Valide une adresse de livraison
- */
+
 export function validateDeliveryAddress(address: string): boolean {
   if (!address || address.trim().length < 10) return false;
-  
-  // Vérifier qu'il y a au moins une virgule (séparateur adresse/ville)
+
   const parts = address.split(',');
   if (parts.length < 2) return false;
-  
-  // Vérifier qu'il y a un code postal
+
   const cityPart = parts[1].trim();
   const postalCodeMatch = cityPart.match(/\d{5}/);
   return !!postalCodeMatch;

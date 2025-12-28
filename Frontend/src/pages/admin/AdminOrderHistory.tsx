@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { getApiUrl } from '../../utils/security';
+import { secureStorage } from '../../utils/security';
+import { logger } from '../../utils/logger';
 
 interface OrderItem {
   name: string;
@@ -38,7 +41,7 @@ function AdminOrderHistory() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://domainedesrevesbleus.famillemntmata.eu';
+  const API_URL = getApiUrl();
 
   useEffect(() => {
     fetchHistory();
@@ -46,7 +49,7 @@ function AdminOrderHistory() {
 
   const fetchHistory = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = secureStorage.getItem('adminToken');
       const response = await fetch(`${API_URL}/api/admin/orders/history/all`, {
         headers: {
           'Authorization': `Bearer ${token}`,

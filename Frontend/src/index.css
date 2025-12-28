@@ -1,6 +1,3 @@
-/* Fonts préchargées dans index.html pour éviter le FOUC */
-/* @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap'); */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -18,7 +15,6 @@ body {
   background-color: var(--background);
 }
 
-/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -37,7 +33,6 @@ body {
   animation: slideIn 0.8s ease-out forwards;
 }
 
-/* Composants modernisés */
 .glass-effect {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(12px);
@@ -135,7 +130,6 @@ body {
   font-weight: 500;
 }
 
-/* Classes pour le panier */
 .cart-item {
   display: flex;
   gap: 1rem;
@@ -145,7 +139,6 @@ body {
   background-color: white;
 }
 
-/* Classes pour le formulaire */
 .form-input {
   @apply w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300;
 }

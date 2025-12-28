@@ -16,6 +16,9 @@ class UpdateUserRequest(BaseModel):
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
 
+class SetDefaultAddressRequest(BaseModel):
+    address: str
+
 @router.get("/")
 async def get_user(
     user: User = Depends(verify_token),
@@ -28,6 +31,7 @@ async def get_user(
         "phone": user.phone,
         "email": user.email,
         "role": user.role.value,
+        "defaultAddress": user.default_address,
         "createdAt": user.created_at.isoformat() if user.created_at else None
     }
 
@@ -82,4 +86,57 @@ async def delete_user(
     db.delete(user)
     db.commit()
     return {"message": "Compte supprimé"}
+
+@router.get("/orders")
+async def get_user_orders(
+    user: User = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    from models import Order, OrderItem
+    orders = db.query(Order).filter(Order.user_id == user.id).order_by(Order.created_at.desc()).all()
+    result = []
+    for order in orders:
+        items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+        result.append({
+            "_id": order.id,
+            "paymentIntentId": order.payment_intent_id,
+            "items": [
+                {
+                    "name": item.name,
+                    "price": item.price,
+                    "quantity": item.quantity,
+                    "image": item.image
+                }
+                for item in items
+            ],
+            "totalAmount": order.total_amount,
+            "shippingCost": order.shipping_cost,
+            "shippingAddress": order.shipping_address,
+            "status": order.status.value,
+            "paymentStatus": order.payment_status.value,
+            "createdAt": order.created_at.isoformat() if order.created_at else None,
+            "shippedAt": order.shipped_at.isoformat() if order.shipped_at else None
+        })
+    return result
+
+@router.post("/default-address")
+async def set_default_address(
+    request: SetDefaultAddressRequest,
+    user: User = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    if not request.address or len(request.address.strip()) < 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Adresse invalide"
+        )
+    
+    user.default_address = request.address.strip()
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "message": "Adresse par défaut enregistrée",
+        "defaultAddress": user.default_address
+    }
 

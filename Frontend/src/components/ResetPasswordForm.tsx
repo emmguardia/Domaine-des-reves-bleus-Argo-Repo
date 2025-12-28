@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Lock, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { getApiUrl } from '../utils/security';
 
 const ResetPasswordForm: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -80,7 +81,7 @@ const ResetPasswordForm: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/reset-password`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json' 
@@ -97,8 +98,7 @@ const ResetPasswordForm: React.FC = () => {
       if (response.ok) {
         setIsSuccess(true);
         setMessage(result.message);
-        
-        // Rediriger vers la page de connexion après 3 secondes
+
         setTimeout(() => {
           navigate('/login');
         }, 3000);
@@ -117,7 +117,7 @@ const ResetPasswordForm: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    // Effacer les erreurs quand l'utilisateur commence à taper
+
     if (errors.length > 0) {
       setErrors([]);
     }

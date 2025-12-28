@@ -1,10 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: domaine-des-reves-bleus-backend-service
+  namespace: domaine-des-reves-bleus
+spec:
+  selector:
+    app: domaine-des-reves-bleus-backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: domaine-des-reves-bleus-backend
-  namespace: default
+  namespace: domaine-des-reves-bleus
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: domaine-des-reves-bleus-backend
@@ -13,23 +26,20 @@ spec:
       labels:
         app: domaine-des-reves-bleus-backend
     spec:
-      initContainers:
-      - name: install-dependencies
-        image: python:3.11-slim
-        workingDir: /app
-        command: ["/bin/sh"]
-        args: ["-c", "pip install --no-cache-dir -r requirements.txt"]
-        volumeMounts:
-        - name: backend-code
-          mountPath: /app
       containers:
       - name: backend
-        image: python:3.11-slim
-        workingDir: /app
-        command: ["uvicorn"]
-        args: ["main:app", "--host", "0.0.0.0", "--port", "8000"]
+        image: domaine-des-reves-bleus-backend:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
+        workingDir: /app
+        volumeMounts:
+        - name: backend
+          mountPath: /app
+          readOnly: false
+        - name: uploads
+          mountPath: /app/uploads
+          readOnly: false
         env:
         - name: STRIPE_SECRET_KEY
           valueFrom:
@@ -67,47 +77,15 @@ spec:
               name: domaine-des-reves-bleus-secrets
               key: mariadb-database
         - name: FRONTEND_URL
-          value: "https://domainedesrevesbleus.famillemntmata.eu"
+          value: "https://domainedesrevesbleus.eu"
         - name: PORT
           value: "8000"
-        volumeMounts:
-        - name: backend-code
-          mountPath: /app
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
       volumes:
-      - name: backend-code
-        persistentVolumeClaim:
-          claimName: domaine-des-reves-bleus-backend-pvc
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: domaine-des-reves-bleus-backend-service
-  namespace: default
-spec:
-  selector:
-    app: domaine-des-reves-bleus-backend
-  ports:
-  - protocol: TCP
-    port: 8000
-    targetPort: 8000
-  type: ClusterIP
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: domaine-des-reves-bleus-backend-pvc
-  namespace: default
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 2Gi
-
+      - name: backend
+        hostPath:
+          path: /home/zozoo/Domaine_des_reves_bleus/Backend
+          type: Directory
+      - name: uploads
+        hostPath:
+          path: /home/zozoo/Domaine_des_reves_bleus/Backend/uploads
+          type: Directory

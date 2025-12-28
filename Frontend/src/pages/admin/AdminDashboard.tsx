@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaBox, FaShoppingCart, FaExclamationTriangle, FaEuroSign } from 'react-icons/fa';
+import { getApiUrl } from '../../utils/security';
+import { secureStorage } from '../../utils/security';
+import { logger } from '../../utils/logger';
 
 function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const API_URL = import.meta.env.VITE_API_URL || 'https://domainedesrevesbleus.famillemntmata.eu';
+  const API_URL = getApiUrl();
 
   useEffect(() => {
     fetchStats();
@@ -13,7 +16,7 @@ function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = secureStorage.getItem('adminToken');
       const response = await fetch(`${API_URL}/api/admin/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -26,13 +29,13 @@ function AdminDashboard() {
           const data = await response.json();
           setStats(data);
         } else {
-          console.error('Réponse non-JSON reçue pour les stats');
+          logger.error('Réponse non-JSON reçue pour les stats');
         }
       } else {
-        console.error('Erreur HTTP stats:', response.status);
+        logger.error('Erreur HTTP stats:', response.status);
       }
     } catch (error) {
-      console.error('Erreur lors de la récupération des statistiques:', error);
+      logger.error('Erreur lors de la récupération des statistiques:', error);
     } finally {
       setLoading(false);
     }

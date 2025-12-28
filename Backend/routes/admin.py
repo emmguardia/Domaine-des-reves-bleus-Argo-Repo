@@ -5,17 +5,30 @@ from sqlalchemy import func
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from jose import jwt
-from passlib.context import CryptContext
+import bcrypt
 from datetime import datetime, timedelta
 import os
 from database import get_db
 from middleware.auth import verify_admin_token
 from models import Admin, Product, Order, OrderStatus, PaymentStatus, User
+from datetime import datetime, timedelta
+import csv
+import io
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 security = HTTPBearer()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 JWT_SECRET = os.getenv("JWT_SECRET")
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Vérifie un mot de passe contre un hash bcrypt"""
+    # Tronquer à 72 bytes (limite de bcrypt)
+    password_bytes = password.encode('utf-8')[:72]
+    password_truncated = password_bytes.decode('utf-8', errors='ignore')
+    try:
+        return bcrypt.checkpw(password_truncated.encode('utf-8'), hashed.encode('utf-8'))
+    except Exception:
+        return False
 
 class AdminLoginRequest(BaseModel):
     username: str
@@ -56,10 +69,7 @@ class UpdateOrderStatusRequest(BaseModel):
 async def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db)):
     admin = db.query(Admin).filter(Admin.username == request.username).first()
     
-    fake_hash = "$2a$10$fakehashforsecuritypurposesonly"
-    password_to_check = admin.password if admin else fake_hash
-    
-    if not admin or not pwd_context.verify(request.password, password_to_check):
+    if not admin or not verify_password(request.password, admin.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Identifiants incorrects"
@@ -252,4 +262,144 @@ async def get_stats(admin: Admin = Depends(verify_admin_token), db: Session = De
             "total": float(total_revenue)
         }
     }
+
+@router.get("/stats/advanced")
+async def get_advanced_stats(admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):
+    now = datetime.utcnow()
+    last_7_days = now - timedelta(days=7)
+    last_30_days = now - timedelta(days=30)
+    
+    revenue_7d = db.query(func.sum(Order.total_amount)).filter(
+        Order.payment_status == PaymentStatus.SUCCEEDED,
+        Order.created_at >= last_7_days
+    ).scalar() or 0.0
+    
+    revenue_30d = db.query(func.sum(Order.total_amount)).filter(
+        Order.payment_status == PaymentStatus.SUCCEEDED,
+        Order.created_at >= last_30_days
+    ).scalar() or 0.0
+    
+    orders_7d = db.query(func.count(Order.id)).filter(
+        Order.created_at >= last_7_days
+    ).scalar() or 0
+    
+    orders_30d = db.query(func.count(Order.id)).filter(
+        Order.created_at >= last_30_days
+    ).scalar() or 0
+    
+    daily_revenue = []
+    for i in range(7):
+        day_start = now - timedelta(days=6-i)
+        day_end = day_start + timedelta(days=1)
+        day_revenue = db.query(func.sum(Order.total_amount)).filter(
+            Order.payment_status == PaymentStatus.SUCCEEDED,
+            Order.created_at >= day_start,
+            Order.created_at < day_end
+        ).scalar() or 0.0
+        daily_revenue.append({
+            "date": day_start.strftime("%Y-%m-%d"),
+            "revenue": float(day_revenue)
+        })
+    
+    return {
+        "revenue": {
+            "last7Days": float(revenue_7d),
+            "last30Days": float(revenue_30d),
+            "daily": daily_revenue
+        },
+        "orders": {
+            "last7Days": orders_7d,
+            "last30Days": orders_30d
+        }
+    }
+
+@router.get("/export/orders")
+async def export_orders_csv(admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):
+    orders = db.query(Order).order_by(Order.created_at.desc()).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID", "User ID", "Payment Intent", "Total", "Shipping Cost",
+        "Status", "Payment Status", "Created At"
+    ])
+    
+    for order in orders:
+        writer.writerow([
+            order.id,
+            order.user_id,
+            order.payment_intent_id,
+            order.total_amount,
+            order.shipping_cost,
+            order.status.value,
+            order.payment_status.value,
+            order.created_at.isoformat() if order.created_at else ""
+        ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=orders_export.csv"}
+    )
+
+@router.get("/users")
+async def get_users(admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    return [
+        {
+            "id": user.id,
+            "firstName": user.first_name,
+            "lastName": user.last_name,
+            "email": user.email,
+            "phone": user.phone,
+            "role": user.role.value,
+            "createdAt": user.created_at.isoformat() if user.created_at else None,
+            "ordersCount": db.query(Order).filter(Order.user_id == user.id).count()
+        }
+        for user in users
+    ]
+
+@router.get("/users/{user_id}")
+async def get_user(user_id: int, admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur non trouvé")
+    
+    orders = db.query(Order).filter(Order.user_id == user_id).all()
+    
+    return {
+        "id": user.id,
+        "firstName": user.first_name,
+        "lastName": user.last_name,
+        "email": user.email,
+        "phone": user.phone,
+        "role": user.role.value,
+        "createdAt": user.created_at.isoformat() if user.created_at else None,
+        "orders": [
+            {
+                "id": order.id,
+                "totalAmount": order.total_amount,
+                "status": order.status.value,
+                "createdAt": order.created_at.isoformat() if order.created_at else None
+            }
+            for order in orders
+        ]
+    }
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: int, admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur non trouvé")
+    
+    if user.role.value == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Impossible de supprimer un administrateur"
+        )
+    
+    db.delete(user)
+    db.commit()
+    return {"message": "Utilisateur supprimé avec succès"}
 

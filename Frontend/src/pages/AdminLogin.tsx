@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaLock, FaUser } from 'react-icons/fa';
+import { getApiUrl } from '../utils/security';
+import { secureStorage } from '../utils/security';
 
 function AdminLogin() {
   const [username, setUsername] = useState('');
@@ -10,7 +12,7 @@ function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://domainedesrevesbleus.famillemntmata.eu';
+  const API_URL = getApiUrl();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +40,9 @@ function AdminLogin() {
         throw new Error(data.message || 'Erreur de connexion');
       }
 
-      // Stocker le token admin
-      localStorage.setItem('adminToken', data.token);
-      localStorage.setItem('adminUser', JSON.stringify(data.admin));
+      secureStorage.setItem('adminToken', data.token);
+      secureStorage.setItem('adminUser', JSON.stringify(data.admin));
 
-      // Rediriger vers le panel admin
       navigate('/admin-panel/dashboard');
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la connexion');

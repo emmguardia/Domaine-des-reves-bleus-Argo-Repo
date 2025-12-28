@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://domainedesrevesbleus.eu https://api-adresse.data.gouv.fr; frame-src 'self' https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
     
     <!-- SEO Meta Tags -->
     <title>Les Rêves Bleus - Toilettage Canin Professionnel | Salon de Toilettage pour Chiens</title>
@@ -69,7 +74,6 @@
     }
     </script>
     
-    <!-- Preload des fonts pour éviter le FOUC -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" as="style" />
@@ -87,14 +91,12 @@
       #root {
         min-height: 100vh;
       }
-      /* Masquer le contenu jusqu'à ce que les styles soient chargés */
-      body:not(.styles-loaded) #root {
-        visibility: hidden;
-      }
+      /* Ne plus masquer le contenu - afficher immédiatement même si les styles ne sont pas encore chargés */
+      /* Cela évite que la page reste blanche si le CSS a un problème de chargement */
     </style>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

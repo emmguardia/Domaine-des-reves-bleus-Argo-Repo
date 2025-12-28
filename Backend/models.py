@@ -34,11 +34,41 @@ class User(Base):
     role = Column(SQLEnum(UserRole), default=UserRole.USER)
     reset_password_token = Column(String(255), nullable=True)
     reset_password_expiry = Column(DateTime, nullable=True)
+    default_address = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
     orders = relationship("Order", back_populates="user")
     cart = relationship("Cart", back_populates="user", uselist=False)
+    addresses = relationship("Address", back_populates="user", cascade="all, delete-orphan")
+
+class Address(Base):
+    __tablename__ = "addresses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    label = Column(String(100), nullable=False)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    phone = Column(String(10), nullable=False)
+    address = Column(Text, nullable=False)
+    city = Column(String(100), nullable=False)
+    postal_code = Column(String(10), nullable=False)
+    country = Column(String(100), default="France")
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    user = relationship("User", back_populates="addresses")
+
+class Category(Base):
+    __tablename__ = "categories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 class Admin(Base):
     __tablename__ = "admins"
@@ -128,4 +158,3 @@ class Order(Base):
     
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
-

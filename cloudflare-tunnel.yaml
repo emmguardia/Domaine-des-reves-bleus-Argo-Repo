@@ -1,48 +1,23 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cloudflare-tunnel-config
-  namespace: default
-data:
-  config.yaml: |
-    tunnel: ${TUNNEL_ID}
-    credentials-file: /etc/cloudflared/credentials.json
-
-    ingress:
-      - hostname: domainedesrevesbleus.famillemntmata.eu
-        service: http://domaine-des-reves-bleus-frontend-service:80
-      - hostname: api.domainedesrevesbleus.famillemntmata.eu
-        service: http://domaine-des-reves-bleus-backend-service:8000
-      - service: http_status:404
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cloudflare-tunnel
-  namespace: default
+  name: cloudflared-reves-bleus
+  namespace: domaine-des-reves-bleus
 spec:
-  replicas: 1
   selector:
     matchLabels:
-      app: cloudflare-tunnel
+      app: cloudflared-reves-bleus
   template:
     metadata:
       labels:
-        app: cloudflare-tunnel
+        app: cloudflared-reves-bleus
     spec:
       containers:
       - name: cloudflared
         image: cloudflare/cloudflared:latest
-        command: ["cloudflared", "tunnel", "run"]
-        env:
-        - name: TUNNEL_TOKEN
-          value: "YOUR_CLOUDFLARE_TUNNEL_TOKEN_HERE"
-        volumeMounts:
-        - name: config
-          mountPath: /etc/cloudflared
-          readOnly: true
-      volumes:
-      - name: config
-        configMap:
-          name: cloudflare-tunnel-config
-
+        args:
+        - tunnel
+        - --no-autoupdate
+        - run
+        - --token
+        - "YOUR_CLOUDFLARE_TUNNEL_TOKEN_HERE"

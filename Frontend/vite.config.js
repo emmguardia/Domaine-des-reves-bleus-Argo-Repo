@@ -20,7 +20,7 @@ export default defineConfig({
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         img-src 'self' data: https:;
         font-src 'self' https://fonts.gstatic.com;
-        connect-src 'self' https://api.stripe.com http://localhost:3002 http://176.181.59.85:3002 https://domainedesrevesbleus.famillemntmata.eu;
+        connect-src 'self' https://api.stripe.com http://localhost:3002 http://176.181.59.85:3002 https://domainedesrevesbleus.eu https://api-adresse.data.gouv.fr;
         frame-src 'self' https://js.stripe.com;
         object-src 'none';
         base-uri 'self';
@@ -32,45 +32,47 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Séparer les node_modules en chunks distincts
+
           if (id.includes('node_modules')) {
-            // Stripe dans un chunk séparé (utilisé uniquement sur la page checkout)
+
             if (id.includes('@stripe')) {
               return 'stripe';
             }
-            // Framer Motion dans un chunk séparé (utilisé pour les animations)
+
             if (id.includes('framer-motion')) {
               return 'framer-motion';
             }
-            // React Router dans un chunk séparé
+
             if (id.includes('react-router')) {
               return 'react-router';
             }
-            // React et React DOM ensemble
+
             if (id.includes('react') || id.includes('react-dom')) {
               return 'react-vendor';
             }
-            // React Icons (peut être volumineux)
+
             if (id.includes('react-icons')) {
               return 'react-icons';
             }
-            // Autres vendors
+
             return 'vendor';
           }
         },
-        // Optimiser les noms de fichiers
+
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
       }
     },
     copyPublicDir: true,
-    // Augmenter la limite pour éviter les warnings si nécessaire
-    // mais on préfère optimiser avec manualChunks
+
+
     chunkSizeWarningLimit: 600
   },
   publicDir: 'public',
+  // Ne pas définir VITE_API_URL en build pour utiliser l'URL par défaut (domainedesrevesbleus.eu)
+  // En développement, on peut utiliser une variable d'environnement .env.local
   define: {
-    'process.env.VITE_API_URL': JSON.stringify('http://176.181.59.85:3002')
+    // 'process.env.VITE_API_URL': JSON.stringify('http://176.181.59.85:3002') // Commenté pour production
   }
 })

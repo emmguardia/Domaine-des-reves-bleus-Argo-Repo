@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
 import Home from './pages/Home';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
@@ -9,8 +9,9 @@ import Services from './pages/Services';
 import Contact from './pages/Contact';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { trackPageView } from './utils/analytics';
 
-// Lazy load des pages moins critiques pour réduire le chunk initial
 const Checkout = lazy(() => import('./pages/Checkout'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const Profile = lazy(() => import('./pages/Profile'));
@@ -20,7 +21,6 @@ const PolitiqueConfidentialite = lazy(() => import('./pages/PolitiqueConfidentia
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 
-// Composant de chargement
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center">
     <div className="text-center">
@@ -30,14 +30,20 @@ const LoadingSpinner = () => (
   </div>
 );
 
-function App() {
+function AppContent() {
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin-panel');
+
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location]);
+
   return (
-      <Router>
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-grow">
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes>
+    <div className="min-h-screen flex flex-col">
+      {!isAdminRoute && <Header />}
+      <main className="flex-grow">
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<LoginForm />} />
               <Route path="/register" element={<RegisterForm />} />
@@ -53,12 +59,21 @@ function App() {
               <Route path="/politique-de-confidentialite" element={<PolitiqueConfidentialite />} />
               <Route path="/admin-panel" element={<AdminLogin />} />
               <Route path="/admin-panel/*" element={<AdminPanel />} />
-            </Routes>
-          </Suspense>
-        </main>
-        <Footer />
-      </div>
+          </Routes>
+        </Suspense>
+      </main>
+      {!isAdminRoute && <Footer />}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <Router>
+        <AppContent />
       </Router>
+    </ErrorBoundary>
   );
 }
 

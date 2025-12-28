@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { getApiUrl } from '../utils/security';
+import { secureStorage } from '../utils/security';
 import {
   FaBox,
   FaShoppingCart,
@@ -13,24 +15,28 @@ import {
   FaTimes,
   FaTruck,
   FaHistory,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaUser
 } from 'react-icons/fa';
 import AdminDashboard from './admin/AdminDashboard';
 import AdminProducts from './admin/AdminProducts';
 import AdminOrders from './admin/AdminOrders';
 import AdminOrderHistory from './admin/AdminOrderHistory';
+import AdminCategories from './admin/AdminCategories';
+import AdminUsers from './admin/AdminUsers';
+import AdminAdvancedStats from './admin/AdminAdvancedStats';
 
 function AdminPanel() {
   const navigate = useNavigate();
   const location = useLocation();
   const [adminUser, setAdminUser] = useState<any>(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://domainedesrevesbleus.famillemntmata.eu';
+  const API_URL = getApiUrl();
 
   useEffect(() => {
-    // Vérifier l'authentification admin
-    const token = localStorage.getItem('adminToken');
-    const user = localStorage.getItem('adminUser');
+
+    const token = secureStorage.getItem('adminToken');
+    const user = secureStorage.getItem('adminUser');
 
     if (!token || !user) {
       navigate('/admin-panel');
@@ -41,8 +47,8 @@ function AdminPanel() {
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
+    secureStorage.removeItem('adminToken');
+    secureStorage.removeItem('adminUser');
     navigate('/admin-panel');
   };
 
@@ -59,14 +65,16 @@ function AdminPanel() {
 
   const menuItems = [
     { path: '/admin-panel/dashboard', icon: FaChartLine, label: 'Tableau de bord' },
+    { path: '/admin-panel/stats', icon: FaChartLine, label: 'Statistiques' },
     { path: '/admin-panel/products', icon: FaBox, label: 'Produits' },
+    { path: '/admin-panel/categories', icon: FaBox, label: 'Catégories' },
     { path: '/admin-panel/orders', icon: FaShoppingCart, label: 'Commandes' },
     { path: '/admin-panel/history', icon: FaHistory, label: 'Historique' },
+    { path: '/admin-panel/users', icon: FaUser, label: 'Utilisateurs' },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50">
         <div className="flex flex-col h-full">
           <div className="p-6 border-b">
@@ -111,13 +119,15 @@ function AdminPanel() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="ml-64">
+      <div className="ml-64 pt-8">
         <Routes>
           <Route path="/dashboard" element={<AdminDashboard />} />
+          <Route path="/stats" element={<AdminAdvancedStats />} />
           <Route path="/products" element={<AdminProducts />} />
+          <Route path="/categories" element={<AdminCategories />} />
           <Route path="/orders" element={<AdminOrders />} />
           <Route path="/history" element={<AdminOrderHistory />} />
+          <Route path="/users" element={<AdminUsers />} />
           <Route path="/" element={<AdminDashboard />} />
         </Routes>
       </div>

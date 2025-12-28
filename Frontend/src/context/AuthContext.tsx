@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getApiUrl } from '../utils/security';
+import { secureStorage } from '../utils/security';
+import { logger } from '../utils/logger';
 
 interface User {
   _id: string;
@@ -7,6 +10,7 @@ interface User {
   phone: string;
   email: string;
   token: string;
+  defaultAddress?: string;
 }
 
 interface AuthContextType {
@@ -17,9 +21,9 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://domainedesrevesbleus.famillemntmata.eu';
+// Ne pas appeler getApiUrl() au niveau du module pour éviter les erreurs au chargement
+// L'appeler dans les fonctions quand nécessaire
 
-// Créer un événement personnalisé pour la mise à jour de l'état
 const AUTH_STATE_CHANGED = 'authStateChanged';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,92 +31,74 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  // Fonction pour mettre à jour l'état utilisateur
   const updateUserState = (userData: User | null) => {
-    if (import.meta.env.DEV) {
-      console.log('Mise à jour de l\'état utilisateur:', userData);
-    }
+    logger.log('Mise à jour de l\'état utilisateur');
     setUser(userData);
     if (userData) {
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', userData.token);
+      secureStorage.setItem('user', JSON.stringify(userData));
+      secureStorage.setItem('token', userData.token);
     } else {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
+      secureStorage.removeItem('user');
+      secureStorage.removeItem('token');
     }
-    // Déclencher l'événement de changement d'état
+
     window.dispatchEvent(new CustomEvent(AUTH_STATE_CHANGED, { detail: userData }));
   };
 
-  // Fonction pour vérifier si un token JWT est expiré
   const isTokenExpired = (token: string): boolean => {
     try {
-      // Décoder le token JWT (il est en format base64url)
+
       const parts = token.split('.');
       if (parts.length !== 3) {
         return true; // Token invalide
       }
-      
-      // Décoder le payload (partie 2 du token)
+
       const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      
-      // Vérifier l'expiration
+
       const currentTime = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < currentTime) {
-        if (import.meta.env.DEV) {
-          console.log('Token expiré:', payload.exp, 'vs', currentTime);
-        }
+        logger.log('Token expiré');
         return true;
       }
       
       return false;
     } catch (error) {
-      console.error('Erreur lors de la vérification du token:', error);
+      logger.error('Erreur lors de la vérification du token:', error);
       return true; // Si on ne peut pas décoder, on considère qu'il est invalide
     }
   };
 
   useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log('Vérification de l\'état de connexion au chargement...');
-    }
-    const storedUser = localStorage.getItem('user');
-    const storedToken = localStorage.getItem('token');
+    logger.log('Vérification de l\'état de connexion au chargement...');
+    const storedUser = secureStorage.getItem('user');
+    const storedToken = secureStorage.getItem('token');
     
     if (storedUser && storedToken) {
       try {
-        // Vérifier si le token est expiré
+
         if (isTokenExpired(storedToken)) {
-          if (import.meta.env.DEV) {
-            console.log('Token expiré, déconnexion automatique...');
-          }
+          logger.log('Token expiré, déconnexion automatique...');
           updateUserState(null);
           return;
         }
         
         const userData = JSON.parse(storedUser);
-        if (import.meta.env.DEV) {
-          console.log('Utilisateur trouvé dans le stockage local:', userData);
-        }
+        logger.log('Utilisateur trouvé dans le stockage local');
         updateUserState(userData);
       } catch (error) {
-        console.error('Erreur lors de la récupération des données utilisateur:', error);
+        logger.error('Erreur lors de la récupération des données utilisateur:', error);
         updateUserState(null);
       }
     } else {
-      if (import.meta.env.DEV) {
-        console.log('Aucun utilisateur trouvé dans le stockage local');
-      }
+      logger.log('Aucun utilisateur trouvé dans le stockage local');
       updateUserState(null);
     }
   }, []);
 
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
-    if (import.meta.env.DEV) {
-      console.log('Tentative de connexion avec:', email, 'rememberMe:', rememberMe);
-    }
+    logger.log('Tentative de connexion');
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -126,29 +112,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const data = await response.json();
-      if (import.meta.env.DEV) {
-        console.log('Réponse du serveur:', data);
-      }
+      logger.log('Réponse du serveur reçue');
 
       if (!response.ok) {
         throw new Error(JSON.stringify(data));
       }
 
-      if (import.meta.env.DEV) {
-        console.log('Connexion réussie, mise à jour de l\'état...');
-      }
+      logger.log('Connexion réussie, mise à jour de l\'état...');
       updateUserState(data);
-      
-      // Si rememberMe est true, on stocke les informations dans localStorage
+
       if (rememberMe) {
-        localStorage.setItem('rememberMe', 'true');
+        secureStorage.setItem('rememberMe', 'true');
       } else {
-        localStorage.removeItem('rememberMe');
+        secureStorage.removeItem('rememberMe');
       }
       
       return { success: true };
     } catch (error) {
-      console.error('Erreur lors de la connexion:', error);
+      logger.error('Erreur lors de la connexion:', error);
       if (error instanceof Error) {
         try {
           const errorData = JSON.parse(error.message);
@@ -190,17 +171,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }): string[] => {
     const errors: string[] = [];
 
-    // Validation du prénom et du nom
     if (!data.firstName.trim() || !data.lastName.trim()) {
       errors.push('Le prénom et le nom de famille sont requis');
     }
 
-    // Validation du téléphone
     if (!/^[0-9]{10}$/.test(data.phone.replace(/\s/g, ''))) {
       errors.push('Le numéro de téléphone doit contenir exactement 10 chiffres');
     }
 
-    // Validation de l'email
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
       errors.push('Format d\'email invalide');
     }
@@ -218,20 +196,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       username: email
     };
 
-    // Validation des autres champs
     const validationErrors = validateRegistrationData(registrationData);
     if (validationErrors.length > 0) {
       throw new Error(JSON.stringify(validationErrors));
     }
 
-    // Validation spécifique du mot de passe
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
       throw new Error(JSON.stringify([passwordValidation.message]));
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -251,43 +227,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const data = await response.json();
       setUser(data);
-      localStorage.setItem('user', JSON.stringify(data));
-      localStorage.setItem('token', data.token);
+      secureStorage.setItem('user', JSON.stringify(data));
+      secureStorage.setItem('token', data.token);
     } catch (error) {
       throw error;
     }
   };
 
   const logout = () => {
-    console.log('Déconnexion...');
+    logger.log('Déconnexion...');
     updateUserState(null);
   };
 
   const refreshUser = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = secureStorage.getItem('token');
       if (!token) return;
-      
-      // Vérifier si le token est expiré avant de faire la requête
+
       if (isTokenExpired(token)) {
-        if (import.meta.env.DEV) {
-          console.log('Token expiré lors du rafraîchissement, déconnexion...');
-        }
+        logger.log('Token expiré lors du rafraîchissement, déconnexion...');
         updateUserState(null);
         return;
       }
       
-      const response = await fetch(`${API_URL}/api/user`, {
+      const response = await fetch(`${getApiUrl()}/api/user`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
       });
-      
-      // Si la réponse est 401, le token est invalide ou expiré
+
       if (response.status === 401) {
-        console.log('Token invalide (401), déconnexion...');
+        logger.log('Token invalide (401), déconnexion...');
         updateUserState(null);
         return;
       }
@@ -301,8 +273,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } as User;
       updateUserState(normalized);
     } catch (e) {
-      console.error('Erreur lors de la mise à jour des informations utilisateur:', e);
-      // En cas d'erreur réseau ou autre, vérifier si c'est une erreur d'authentification
+      logger.error('Erreur lors de la mise à jour des informations utilisateur:', e);
+
       if (e instanceof Error && e.message.includes('401')) {
         updateUserState(null);
       }

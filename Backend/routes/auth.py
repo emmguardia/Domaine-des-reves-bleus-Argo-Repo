@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, validator
 from jose import jwt
-from passlib.context import CryptContext
+import bcrypt
 import secrets
 from datetime import datetime, timedelta
 import os
@@ -12,9 +12,29 @@ from models import User
 
 router = APIRouter()
 security = HTTPBearer()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    """Hash un mot de passe avec bcrypt"""
+    # Tronquer à 72 bytes (limite de bcrypt)
+    password_bytes = password.encode('utf-8')[:72]
+    password_truncated = password_bytes.decode('utf-8', errors='ignore')
+    # Générer le salt et hasher
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(password_truncated.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Vérifie un mot de passe contre un hash bcrypt"""
+    # Tronquer à 72 bytes (limite de bcrypt)
+    password_bytes = password.encode('utf-8')[:72]
+    password_truncated = password_bytes.decode('utf-8', errors='ignore')
+    try:
+        return bcrypt.checkpw(password_truncated.encode('utf-8'), hashed.encode('utf-8'))
+    except Exception:
+        return False
+
 JWT_SECRET = os.getenv("JWT_SECRET")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://domainedesrevesbleus.famillemntmata.eu")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://domainedesrevesbleus.eu")
 
 class RegisterRequest(BaseModel):
     firstName: str
@@ -79,7 +99,7 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
             detail="Un utilisateur avec cet email existe déjà"
         )
     
-    hashed_password = pwd_context.hash(request.password)
+    hashed_password = hash_password(request.password)
     
     user = User(
         first_name=request.firstName,
@@ -118,10 +138,7 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
 async def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == request.email.lower()).first()
     
-    fake_hash = "$2a$10$fakehashforsecuritypurposesonly"
-    password_to_check = user.password if user else fake_hash
-    
-    if not user or not pwd_context.verify(request.password, password_to_check):
+    if not user or not verify_password(request.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou mot de passe incorrect"
@@ -187,7 +204,7 @@ async def reset_password(request: ResetPasswordRequest, db: Session = Depends(ge
             detail="Token invalide ou expiré"
         )
     
-    hashed_password = pwd_context.hash(request.password)
+    hashed_password = hash_password(request.password)
     user.password = hashed_password
     user.reset_password_token = None
     user.reset_password_expiry = None

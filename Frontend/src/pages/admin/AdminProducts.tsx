@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaPlus, FaEdit, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
+import { getApiUrl } from '../../utils/security';
+import { secureStorage } from '../../utils/security';
+import { logger } from '../../utils/logger';
 
 interface Product {
   _id: string;
@@ -27,8 +30,9 @@ function AdminProducts() {
     stock: '',
     weightGrams: '100',
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://domainedesrevesbleus.famillemntmata.eu';
+  const API_URL = getApiUrl();
 
   useEffect(() => {
     fetchProducts();
@@ -36,7 +40,7 @@ function AdminProducts() {
 
   const fetchProducts = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = secureStorage.getItem('adminToken');
       const response = await fetch(`${API_URL}/api/admin/products`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -47,15 +51,21 @@ function AdminProducts() {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const data = await response.json();
-          setProducts(data);
+          // Mapper les produits pour convertir id en _id
+          const mappedProducts = data.map((product: any) => ({
+            ...product,
+            _id: product.id || product._id,
+            id: product.id || product._id
+          }));
+          setProducts(mappedProducts);
         } else {
-          console.error('Réponse non-JSON reçue pour les produits admin');
+          logger.error('Réponse non-JSON reçue pour les produits admin');
         }
       } else {
-        console.error('Erreur HTTP produits admin:', response.status);
+        logger.error('Erreur HTTP produits admin:', response.status);
       }
     } catch (error) {
-      console.error('Erreur lors de la récupération des produits:', error);
+      logger.error('Erreur lors de la récupération des produits:', error);
     } finally {
       setLoading(false);
     }
@@ -64,9 +74,11 @@ function AdminProducts() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = secureStorage.getItem('adminToken');
+      // Utiliser id ou _id selon ce qui est disponible
+      const productId = editingProduct?._id || editingProduct?.id;
       const url = editingProduct
-        ? `${API_URL}/api/admin/products/${editingProduct._id}`
+        ? `${API_URL}/api/admin/products/${productId}`
         : `${API_URL}/api/admin/products`;
 
       const method = editingProduct ? 'PUT' : 'POST';
@@ -100,7 +112,7 @@ function AdminProducts() {
         fetchProducts();
       }
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde du produit:', error);
+      logger.error('Erreur lors de la sauvegarde du produit:', error);
     }
   };
 
@@ -118,14 +130,15 @@ function AdminProducts() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (product: Product) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
       return;
     }
 
     try {
-      const token = localStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/products/${id}`, {
+      const token = secureStorage.getItem('adminToken');
+      const productId = product._id || product.id;
+      const response = await fetch(`${API_URL}/api/admin/products/${productId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -233,7 +246,7 @@ function AdminProducts() {
                   <span>Modifier</span>
                 </button>
                 <button
-                  onClick={() => handleDelete(product._id)}
+                  onClick={() => handleDelete(product)}
                   className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
                 >
                   <FaTrash className="w-4 h-4" />
@@ -310,15 +323,64 @@ function AdminProducts() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Image (URL)
+                    Image
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                    className="form-input w-full"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        setUploadingImage(true);
+                        try {
+                          const token = secureStorage.getItem('adminToken');
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          
+                          const response = await fetch(`${API_URL}/api/admin/upload/image`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                            },
+                            body: formData,
+                          });
+                          
+                          if (response.ok) {
+                            const data = await response.json();
+                            setFormData(prev => ({ ...prev, image: data.url }));
+                          } else {
+                            alert('Erreur lors de l\'upload de l\'image');
+                          }
+                        } catch (error) {
+                          logger.error('Erreur:', error);
+                          alert('Erreur lors de l\'upload de l\'image');
+                        } finally {
+                          setUploadingImage(false);
+                        }
+                      }}
+                      className="form-input w-full"
+                      disabled={uploadingImage}
+                    />
+                    {uploadingImage && (
+                      <p className="text-sm text-blue-600">Upload en cours...</p>
+                    )}
+                    <input
+                      type="text"
+                      value={formData.image}
+                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                      className="form-input w-full"
+                      placeholder="Ou entrez une URL d'image"
+                    />
+                    {formData.image && (
+                      <img
+                        src={formData.image}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-lg border"
+                      />
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

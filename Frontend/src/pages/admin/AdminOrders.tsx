@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaCheck, FaTruck, FaTimes } from 'react-icons/fa';
+import { getApiUrl } from '../../utils/security';
+import { secureStorage } from '../../utils/security';
+import { logger } from '../../utils/logger';
 
 interface OrderItem {
   name: string;
@@ -39,7 +42,7 @@ function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://domainedesrevesbleus.famillemntmata.eu';
+  const API_URL = getApiUrl();
 
   useEffect(() => {
     fetchOrders();
@@ -47,7 +50,7 @@ function AdminOrders() {
 
   const fetchOrders = async () => {
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = secureStorage.getItem('adminToken');
       const url = filter !== 'all'
         ? `${API_URL}/api/admin/orders?status=${filter}`
         : `${API_URL}/api/admin/orders`;
@@ -78,7 +81,7 @@ function AdminOrders() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = secureStorage.getItem('adminToken');
       const response = await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
@@ -102,7 +105,7 @@ function AdminOrders() {
     }
 
     try {
-      const token = localStorage.getItem('adminToken');
+      const token = secureStorage.getItem('adminToken');
       const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
         method: 'DELETE',
         headers: {

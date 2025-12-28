@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 import stripe
 import os
 from database import get_db
@@ -15,7 +16,7 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 class CreatePaymentIntentRequest(BaseModel):
     amount: int
     currency: str = "eur"
-    shippingInfo: dict = None
+    shippingInfo: Optional[dict] = None
     shippingCost: float = 0.0
 
 class ConfirmPaymentRequest(BaseModel):
@@ -27,6 +28,18 @@ async def create_payment_intent(
     user: User = Depends(verify_token),
     db: Session = Depends(get_db)
 ):
+    if not stripe.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Configuration Stripe manquante"
+        )
+    
+    if request.amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le montant doit être supérieur à 0"
+        )
+    
     metadata = {"userId": str(user.id)}
     
     if request.shippingInfo:
@@ -60,6 +73,11 @@ async def create_payment_intent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la création de l'intention de paiement: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur serveur: {str(e)}"
         )
 
 @router.post("/confirm-payment")

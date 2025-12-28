@@ -7,15 +7,17 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 import os
 import stripe
 from contextlib import asynccontextmanager
 from database import engine, Base, get_db
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 import uvicorn
 
-from routes import auth, payment, cart, user, admin, products
+from routes import auth, payment, cart, user, admin, products, addresses, categories, upload
 from models import User, Order, Cart, CartItem, OrderItem, OrderStatus, PaymentStatus
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -25,7 +27,19 @@ limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Créer les tables si elles n'existent pas
     Base.metadata.create_all(bind=engine)
+    
+    try:
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("SELECT default_address FROM users LIMIT 1"))
+            except Exception:
+                conn.execute(text("ALTER TABLE users ADD COLUMN default_address TEXT NULL"))
+                conn.commit()
+    except Exception:
+        pass
+    
     yield
 
 app = FastAPI(
@@ -42,9 +56,8 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://domainedesrevesbleus.famillemntmata.eu",
-        "http://localhost:5173",
-        "http://localhost:3000"
+        "https://domainedesrevesbleus.eu",
+        "https://www.domainedesrevesbleus.eu",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -164,7 +177,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         
         db.query(CartItem).filter(CartItem.cart_id == cart.id).delete()
         db.commit()
-        
+    
     elif event.type == "payment_intent.payment_failed":
         pass
     
@@ -186,90 +199,24 @@ async def get_payment_status(
     except stripe.error.StripeError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/sitemap.xml")
-async def sitemap():
-    sitemap_content = """<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://domainedesrevesbleus.eu/</loc>
-    <lastmod>2025-12-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/products</loc>
-    <lastmod>2025-12-20</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/services</loc>
-    <lastmod>2025-12-20</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/contact</loc>
-    <lastmod>2025-12-20</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/metion-legale</loc>
-    <lastmod>2025-12-20</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/cgv</loc>
-    <lastmod>2025-12-20</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/politique-de-confidentialite</loc>
-    <lastmod>2025-12-20</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-</urlset>"""
-    return Response(content=sitemap_content, media_type="application/xml")
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
+        swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
+    )
 
-@app.get("/robots.txt")
-async def robots():
-    robots_content = """# robots.txt pour Les Rêves Bleus - Toilettage Canin
-# https://domainedesrevesbleus.eu
-
-User-agent: *
-Allow: /
-Allow: /products
-Allow: /services
-Allow: /contact
-Allow: /metion-legale
-Allow: /cgv
-Allow: /politique-de-confidentialite
-
-# Pages privées à ne pas indexer
-Disallow: /login
-Disallow: /register
-Disallow: /reset-password
-Disallow: /profile
-Disallow: /checkout
-Disallow: /order-confirmation
-Disallow: /admin-panel
-Disallow: /admin-panel/
-
-# API et ressources techniques
-Disallow: /api/
-Disallow: /assets/
-
-# Sitemap
-Sitemap: https://domainedesrevesbleus.eu/sitemap.xml
-
-# Crawl-delay (optionnel, pour éviter de surcharger le serveur)
-Crawl-delay: 1
-"""
-    return Response(content=robots_content, media_type="text/plain")
+@app.get("/openapi.json", include_in_schema=False)
+async def get_openapi_endpoint():
+    return get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(payment.router, prefix="/api/payment", tags=["payment"])
@@ -277,8 +224,10 @@ app.include_router(cart.router, prefix="/api/cart", tags=["cart"])
 app.include_router(user.router, prefix="/api/user", tags=["user"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(products.router, prefix="/api/products", tags=["products"])
+app.include_router(addresses.router, prefix="/api/addresses", tags=["addresses"])
+app.include_router(categories.router, prefix="/api/admin/categories", tags=["categories"])
+app.include_router(upload.router, prefix="/api/admin/upload", tags=["upload"])
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
-

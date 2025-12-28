@@ -3,6 +3,9 @@ import { useAuth } from './AuthContext';
 import axios from 'axios';
 import { sendOrderConfirmationEmail } from '../services/emailService';
 import { calculateShippingCost, calculateShippingCostFallback, validateDeliveryAddress } from '../services/shippingService';
+import { getApiUrl } from '../utils/security';
+import { secureStorage } from '../utils/security';
+import { logger } from '../utils/logger';
 
 interface CartItem {
   id: number;
@@ -25,7 +28,7 @@ interface CartContextType {
   cartSubtotal: number;
   shippingCost: number;
   cartTotal: number;
-  // Nouvelles propriétés pour le calcul des frais de port
+
   deliveryAddress: string;
   setDeliveryAddress: (address: string) => void;
   shippingCalculation: any | null;
@@ -43,15 +46,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { user, logout } = useAuth();
   const isUpdatingFromBackend = useRef(false);
 
-  // Configurer l'intercepteur axios pour gérer les erreurs 401
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
         if (axios.isAxiosError(error) && error.response?.status === 401) {
-          if (import.meta.env.DEV) {
-            console.log('Erreur 401 détectée, déconnexion automatique...');
-          }
+          logger.log('Erreur 401 détectée, déconnexion automatique...');
           logout();
         }
         return Promise.reject(error);
@@ -63,21 +63,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [logout]);
 
-  // Charger le panier au démarrage et quand l'utilisateur change
   useEffect(() => {
     const loadCart = async () => {
       if (user) {
         try {
-          if (import.meta.env.DEV) {
-            console.log('Chargement du panier depuis le backend pour l\'utilisateur:', user._id);
-          }
-          const token = localStorage.getItem('token');
+          logger.log('Chargement du panier depuis le backend');
+          const token = secureStorage.getItem('token');
           if (!token) {
-            console.error('Token non trouvé');
+            logger.error('Token non trouvé');
             return;
           }
 
-          const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/cart`, {
+          const apiUrl = getApiUrl();
+          // Construire l'URL : si apiUrl est vide, on utilise '/api/cart/' (URL relative avec slash final)
+          // FastAPI redirige automatiquement /api/cart vers /api/cart/, donc on ajoute le slash directement
+          const fullUrl = apiUrl ? `${apiUrl}/api/cart/` : '/api/cart/';
+          const response = await axios.get(fullUrl, {
             headers: {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -89,7 +90,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (response.data && response.data.items) {
             isUpdatingFromBackend.current = true;
-            // Vérifier que les poids sont présents
+
             const itemsWithWeights = response.data.items.map((item: any) => {
               if (!item.weightGrams) {
                 console.warn(`Item ${item.id} (${item.name}) n'a pas de weightGrams, utilisation de 100g par défaut`);
@@ -97,8 +98,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
               return item;
             });
-            
-            // Calculer le poids total pour vérification
+
             const totalWeightGrams = itemsWithWeights.reduce((sum: number, item: any) => 
               sum + (item.weightGrams || 100) * item.quantity, 0
             );
@@ -114,16 +114,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.log('Panier chargé avec succès:', itemsWithWeights);
             }
           } else {
-            if (import.meta.env.DEV) {
-              console.log('Aucun panier trouvé, initialisation d\'un panier vide');
-            }
+            logger.log('Aucun panier trouvé, initialisation d\'un panier vide');
             setCartItems([]);
           }
         } catch (error) {
           console.error('Erreur lors du chargement du panier:', error);
           if (axios.isAxiosError(error)) {
             console.error('Détails de l\'erreur:', error.response?.data);
-            // Si erreur 401, logout() est déjà appelé par l'intercepteur
+
           }
           setCartItems([]);
         }
@@ -138,17 +136,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadCart();
   }, [user]);
 
-  // Sauvegarder le panier quand il change
   useEffect(() => {
     if (user && cartItems.length > 0 && !isUpdatingFromBackend.current) {
       const saveCart = async () => {
         try {
-          if (import.meta.env.DEV) {
-            console.log('Sauvegarde du panier sur le backend pour l\'utilisateur:', user._id);
-            console.log('Données à sauvegarder:', cartItems);
-          }
-          
-          // Nettoyer les données pour s'assurer que tous les champs requis sont présents
+          logger.log('Sauvegarde du panier sur le backend');
+
           const cleanItems = cartItems
             .filter(item => item.id && item.name && item.price && item.quantity && item.image)
             .map(item => ({
@@ -161,18 +154,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               weightGrams: item.weightGrams ?? 100
             }));
           
-          if (import.meta.env.DEV) {
-            console.log('Données nettoyées:', cleanItems);
-          }
+          logger.log('Données nettoyées pour sauvegarde');
           
-          const token = localStorage.getItem('token');
+          const token = secureStorage.getItem('token');
           if (!token) {
-            console.error('Token non trouvé');
+            logger.error('Token non trouvé');
             return;
           }
 
+          const apiUrl = getApiUrl();
+          const fullUrl = apiUrl ? `${apiUrl}/api/cart/` : '/api/cart/';
           const response = await axios.post(
-            `${import.meta.env.VITE_API_URL}/api/cart`,
+            fullUrl,
             { items: cleanItems },
             {
               headers: {
@@ -181,18 +174,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
           );
-          if (import.meta.env.DEV) {
-            console.log('Réponse du backend après sauvegarde:', response.data);
-          }
-          
-          // Mettre à jour l'état local avec les données reçues du backend
+          logger.log('Panier sauvegardé avec succès');
+
           if (response.data && response.data.items) {
             isUpdatingFromBackend.current = true;
             setCartItems(response.data.items);
-            if (import.meta.env.DEV) {
-              console.log('État local mis à jour avec les données du backend:', response.data.items);
-            }
-            // Reset le flag après un court délai
+            logger.log('État local mis à jour avec les données du backend');
+
             setTimeout(() => {
               isUpdatingFromBackend.current = false;
             }, 100);
@@ -201,13 +189,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('Erreur lors de la sauvegarde du panier:', error);
           if (axios.isAxiosError(error)) {
             console.error('Détails de l\'erreur:', error.response?.data);
-            // Si erreur 401, logout() est déjà appelé par l'intercepteur
+
           }
         }
       };
       saveCart();
     } else if (isUpdatingFromBackend.current) {
-      // Reset le flag si on vient du backend
+
       isUpdatingFromBackend.current = false;
     }
   }, [cartItems, user]);
@@ -217,7 +205,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Ajout au panier:', item);
     }
     setCartItems(prevItems => {
-      // Chercher un item existant avec le même ID ET le même volume
+
       const existingItem = prevItems.find(i => 
         i.id === item.id && i.volume === item.volume
       );
@@ -281,7 +269,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setShippingCalculation(null);
   };
 
-  // Fonction pour calculer les frais de port pour une adresse donnée
   const calculateShippingForAddress = async (address: string) => {
     if (!address || cartItems.length === 0) {
       setShippingCalculation(null);
@@ -292,7 +279,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDeliveryAddress(address);
 
     try {
-      // Valider l'adresse
+
       if (!validateDeliveryAddress(address)) {
         console.warn('Adresse de livraison invalide, utilisation du calcul par défaut');
         const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
@@ -301,7 +288,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Calculer les frais de port avec géolocalisation
       if (import.meta.env.DEV) {
         console.log('Calcul des frais de port pour:', cartWeightGrams, 'grammes (', (cartWeightGrams / 1000).toFixed(2), 'kg)');
         console.log('Détail des items:', cartItems.map(item => 
@@ -318,7 +304,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('Prix La Poste calculé pour', calculation.weightKg, 'kg:', calculation.basePrice, '€');
         }
       } else {
-        // Fallback en cas d'erreur
+
         const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
         setShippingCalculation(fallbackCalculation);
         if (import.meta.env.DEV) {
@@ -329,7 +315,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Erreur lors du calcul des frais de port:', error);
-      // Fallback en cas d'erreur
+
       const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
       setShippingCalculation(fallbackCalculation);
     } finally {
@@ -369,22 +355,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
   }, [cartItems]);
 
-  // Calcul du poids total en grammes
   const cartWeightGrams = useMemo(() => {
     const totalWeight = cartItems.reduce((sum, item) => sum + (item.weightGrams ?? 100) * item.quantity, 0);
     return totalWeight;
   }, [cartItems]);
 
-  // Calcul des frais de port avec le nouveau système
   const shippingCost = useMemo(() => {
     if (cartItems.length === 0) return 0;
 
-    // Si on a un calcul précis avec l'adresse, l'utiliser
     if (shippingCalculation) {
       return shippingCalculation.totalShipping;
     }
 
-    // Sinon, utiliser le calcul par défaut (fallback)
     const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
     return fallbackCalculation.totalShipping;
   }, [cartItems, shippingCalculation, cartWeightGrams]);
@@ -406,7 +388,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         cartSubtotal,
         shippingCost,
         cartTotal,
-        // Nouvelles propriétés
+
         deliveryAddress,
         setDeliveryAddress,
         shippingCalculation,

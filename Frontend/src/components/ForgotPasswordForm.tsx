@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { sendForgotPasswordEmail } from '../services/emailService';
+import { logger } from '../utils/logger';
 
 interface ForgotPasswordFormProps {
   onBack: () => void;
@@ -32,7 +33,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
         setMessage(result.message);
       }
     } catch (error) {
-      console.error('Erreur:', error);
+      logger.error('Erreur:', error);
       setMessage('Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsLoading(false);
