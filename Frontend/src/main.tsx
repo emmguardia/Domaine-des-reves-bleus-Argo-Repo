@@ -168,6 +168,15 @@ if (!rootElement) {
     );
   } catch (error) {
     console.error('Failed to render React app:', error);
-    rootElement.innerHTML = '<div style="padding: 20px; text-align: center;"><h1>Erreur de chargement</h1><p>Veuillez rafraîchir la page.</p></div>';
+    const errorDiv = document.createElement('div');
+    errorDiv.style.padding = '20px';
+    errorDiv.style.textAlign = 'center';
+    const h1 = document.createElement('h1');
+    h1.textContent = 'Erreur de chargement';
+    const p = document.createElement('p');
+    p.textContent = 'Veuillez rafraîchir la page.';
+    errorDiv.appendChild(h1);
+    errorDiv.appendChild(p);
+    rootElement.appendChild(errorDiv);
   }
 }

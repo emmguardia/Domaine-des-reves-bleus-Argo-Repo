@@ -101,7 +101,27 @@ async def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db))
 @router.get("/products")
 async def get_all_products(admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):
     products = db.query(Product).order_by(Product.created_at.desc()).all()
-    return products
+    return [
+        {
+            "id": product.id,
+            "_id": product.id,
+            "name": product.name,
+            "description": product.description,
+            "price": product.price,
+            "image": product.image,
+            "category": product.category,
+            "stock": product.stock,
+            "weightGrams": product.weight_grams,
+            "volumes": product.volumes,
+            "fragrances": product.fragrances,
+            "rating": product.rating,
+            "isNew": product.is_new,
+            "isPlaceholder": product.is_placeholder,
+            "createdAt": product.created_at.isoformat() if product.created_at else None,
+            "updatedAt": product.updated_at.isoformat() if product.updated_at else None
+        }
+        for product in products
+    ]
 
 @router.get("/products/{product_id}")
 async def get_product(product_id: int, admin: Admin = Depends(verify_admin_token), db: Session = Depends(get_db)):

@@ -2,9 +2,16 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { FaDog, FaCut, FaHeart, FaArrowRight, FaShoppingBag, FaPaw, FaStar } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+import SEO from '../components/SEO';
+
 function Home() {
   return (
     <main>
+      <SEO 
+        title="Domaine des reves bleus - Toilettage Canin Professionnel | Salon de Toilettage pour Chiens"
+        description="Domaine des reves bleus - Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens. Prestations de qualité à Paris et région parisienne. Spécialiste du toilettage canin."
+        keywords="domaine des reves bleus, toilettage chien, salon toilettage, toilettage canin, soin chien, produits chien, accessoires chien, Paris, toilettage professionnel chien"
+      />
       <section className="hero-section min-h-screen flex items-center justify-center text-white">
         <div className="container mx-auto px-4 sm:px-6 text-center relative z-10 pt-24 sm:pt-32">
           <motion.div

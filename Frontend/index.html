@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://domainedesrevesbleus.eu https://api-adresse.data.gouv.fr; frame-src 'self' https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://domainedesrevesbleus.eu https://api-adresse.data.gouv.fr https://nominatim.openstreetmap.org; frame-src 'self' https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
     <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
     
     <!-- SEO Meta Tags -->
-    <title>Les Rêves Bleus - Toilettage Canin Professionnel | Salon de Toilettage pour Chiens</title>
-    <meta name="description" content="Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens. Prestations de qualité à Paris et région parisienne." />
-    <meta name="keywords" content="toilettage chien, salon toilettage, toilettage canin, soin chien, produits chien, accessoires chien, Paris" />
-    <meta name="author" content="Les Rêves Bleus" />
+    <title>Domaine des reves bleus - Toilettage Canin Professionnel | Salon de Toilettage pour Chiens</title>
+    <meta name="description" content="Domaine des reves bleus - Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens. Prestations de qualité à Paris et région parisienne. Spécialiste du toilettage canin." />
+    <meta name="keywords" content="domaine des reves bleus, toilettage chien, salon toilettage, toilettage canin, soin chien, produits chien, accessoires chien, Paris, toilettage professionnel chien" />
+    <meta name="author" content="Domaine des reves bleus" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="googlebot" content="index, follow" />
     <link rel="canonical" href="https://domainedesrevesbleus.eu/" />
@@ -21,54 +21,96 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://domainedesrevesbleus.eu/" />
-    <meta property="og:title" content="Les Rêves Bleus - Toilettage Canin Professionnel" />
-    <meta property="og:description" content="Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens." />
+    <meta property="og:title" content="Domaine des reves bleus - Toilettage Canin Professionnel" />
+    <meta property="og:description" content="Domaine des reves bleus - Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens." />
     <meta property="og:image" content="https://domainedesrevesbleus.eu/images/groomer.jpg" />
     <meta property="og:locale" content="fr_FR" />
-    <meta property="og:site_name" content="Les Rêves Bleus" />
+    <meta property="og:site_name" content="Domaine des reves bleus" />
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://domainedesrevesbleus.eu/" />
-    <meta name="twitter:title" content="Les Rêves Bleus - Toilettage Canin Professionnel" />
-    <meta name="twitter:description" content="Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens." />
+    <meta name="twitter:title" content="Domaine des reves bleus - Toilettage Canin Professionnel" />
+    <meta name="twitter:description" content="Domaine des reves bleus - Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens." />
     <meta name="twitter:image" content="https://domainedesrevesbleus.eu/images/groomer.jpg" />
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+    <link rel="apple-touch-icon" href="/images/logo.png" />
     
     <!-- Schema.org structured data -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      "name": "Les Rêves Bleus",
-      "description": "Salon de toilettage professionnel pour chiens",
+      "@type": "PetGroomingBusiness",
+      "name": "Domaine des reves bleus",
+      "alternateName": "Domaine des rêves bleus",
+      "description": "Domaine des reves bleus - Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens à Paris et région parisienne.",
       "url": "https://domainedesrevesbleus.eu",
-      "logo": "https://domainedesrevesbleus.eu/images/groomer.jpg",
-      "image": "https://domainedesrevesbleus.eu/images/groomer.jpg",
+      "logo": "https://domainedesrevesbleus.eu/images/logo.png",
+      "image": [
+        "https://domainedesrevesbleus.eu/images/groomer.jpg",
+        "https://domainedesrevesbleus.eu/images/dog-grooming-1.jpg",
+        "https://domainedesrevesbleus.eu/images/dog-grooming-2.jpg"
+      ],
       "priceRange": "€€",
       "address": {
         "@type": "PostalAddress",
-        "addressCountry": "FR"
+        "addressCountry": "FR",
+        "addressRegion": "Île-de-France"
       },
       "geo": {
         "@type": "GeoCoordinates",
         "latitude": "48.8566",
         "longitude": "2.3522"
       },
-      "openingHoursSpecification": {
-        "@type": "OpeningHoursSpecification",
-        "dayOfWeek": [
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday"
-        ],
-        "opens": "09:00",
-        "closes": "18:00"
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          "opens": "09:00",
+          "closes": "18:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": "Saturday",
+          "opens": "09:00",
+          "closes": "17:00"
+        }
+      ],
+      "serviceArea": {
+        "@type": "GeoCircle",
+        "geoMidpoint": {
+          "@type": "GeoCoordinates",
+          "latitude": "48.8566",
+          "longitude": "2.3522"
+        }
+      },
+      "areaServed": {
+        "@type": "City",
+        "name": "Paris"
+      },
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Services de toilettage canin",
+        "itemListElement": [
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Toilettage complet",
+              "description": "Toilettage professionnel complet pour chiens"
+            }
+          },
+          {
+            "@type": "Offer",
+            "itemOffered": {
+              "@type": "Service",
+              "name": "Produits de soin",
+              "description": "Produits de soin et accessoires pour chiens"
+            }
+          }
+        ]
       },
       "sameAs": []
     }

@@ -13,6 +13,7 @@ interface Product {
   category: string;
   stock: number;
   weightGrams?: number;
+  isPlaceholder?: boolean;
 }
 function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,8 +28,8 @@ function AdminProducts() {
     category: '',
     stock: '',
     weightGrams: '100',
+    isPlaceholder: false,
   });
-  const [uploadingImage, setUploadingImage] = useState(false);
   const API_URL = getApiUrl();
   useEffect(() => {
     fetchProducts();
@@ -48,7 +49,8 @@ function AdminProducts() {
           const mappedProducts = data.map((product: any) => ({
             ...product,
             _id: product.id || product._id,
-            id: product.id || product._id
+            id: product.id || product._id,
+            isPlaceholder: product.isPlaceholder !== undefined ? product.isPlaceholder : (product.is_placeholder || false)
           }));
           setProducts(mappedProducts);
         } else {
@@ -83,6 +85,7 @@ function AdminProducts() {
           price: parseFloat(formData.price),
           stock: parseInt(formData.stock),
           weightGrams: parseInt(formData.weightGrams),
+          isPlaceholder: formData.isPlaceholder,
         }),
       });
       if (response.ok) {
@@ -96,6 +99,7 @@ function AdminProducts() {
           category: '',
           stock: '',
           weightGrams: '100',
+          isPlaceholder: false,
         });
         fetchProducts();
       }
@@ -105,14 +109,18 @@ function AdminProducts() {
   };
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
+    const isPlaceholder = product.isPlaceholder !== undefined 
+      ? product.isPlaceholder 
+      : (product as any).is_placeholder || false;
     setFormData({
       name: product.name,
       description: product.description,
       price: product.price.toString(),
-      image: product.image,
+      image: product.image || '',
       category: product.category,
       stock: product.stock.toString(),
       weightGrams: (product.weightGrams || 100).toString(),
+      isPlaceholder: isPlaceholder,
     });
     setShowModal(true);
   };
@@ -185,18 +193,33 @@ function AdminProducts() {
             className="bg-white rounded-xl shadow-lg overflow-hidden"
           >
             <div className="relative h-48 bg-gray-200">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
+              {product.image ? (
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                  <span className="text-gray-400 text-sm">Aucune image</span>
+                </div>
+              )}
+              {product.isPlaceholder && (
+                <div className="absolute top-2 left-2 bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+                  Bientôt disponible
+                </div>
+              )}
               {product.stock === 0 && (
                 <div className="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center space-x-1">
                   <FaExclamationTriangle />
                   <span>Rupture de stock</span>
                 </div>
               )}
-              {product.stock > 0 && product.stock <= 5 && (
+              {product.stock > 0 && product.stock <= 5 && !product.isPlaceholder && (
                 <div className="absolute top-2 right-2 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-medium">
                   Stock faible
                 </div>
@@ -302,61 +325,59 @@ function AdminProducts() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Image
+                    URL de l'image
                   </label>
                   <div className="space-y-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setUploadingImage(true);
-                        try {
-                          const token = secureStorage.getItem('adminToken');
-                          const formData = new FormData();
-                          formData.append('file', file);
-                          const response = await fetch(`${API_URL}/api/admin/upload/image`, {
-                            method: 'POST',
-                            headers: {
-                              'Authorization': `Bearer ${token}`,
-                            },
-                            body: formData,
-                          });
-                          if (response.ok) {
-                            const data = await response.json();
-                            setFormData(prev => ({ ...prev, image: data.url }));
-                          } else {
-                            alert('Erreur lors de l\'upload de l\'image');
-                          }
-                        } catch (error) {
-                          logger.error('Erreur:', error);
-                          alert('Erreur lors de l\'upload de l\'image');
-                        } finally {
-                          setUploadingImage(false);
-                        }
-                      }}
-                      className="form-input w-full"
-                      disabled={uploadingImage}
-                    />
-                    {uploadingImage && (
-                      <p className="text-sm text-blue-600">Upload en cours...</p>
-                    )}
                     <input
                       type="text"
                       value={formData.image}
                       onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                       className="form-input w-full"
-                      placeholder="Ou entrez une URL d'image"
+                      placeholder="https://exemple.com/image.jpg"
                     />
+                    {editingProduct && editingProduct.image && (
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-xs text-gray-600 mb-1">URL actuelle :</p>
+                        <p className="text-sm text-gray-800 break-all font-mono">{editingProduct.image}</p>
+                      </div>
+                    )}
                     {formData.image && (
-                      <img
-                        src={formData.image}
-                        alt="Preview"
-                        className="w-32 h-32 object-cover rounded-lg border"
-                      />
+                      <div className="space-y-2">
+                        <img
+                          src={formData.image}
+                          alt="Preview"
+                          className="w-32 h-32 object-cover rounded-lg border"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, image: '' })}
+                          className="text-sm text-red-600 hover:text-red-700"
+                        >
+                          Retirer l'image
+                        </button>
+                      </div>
                     )}
                   </div>
+                </div>
+                <div>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.isPlaceholder}
+                      onChange={(e) => setFormData({ ...formData, isPlaceholder: e.target.checked })}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Afficher "Image en attente - Bientôt disponible"
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1 ml-6">
+                    Affichera un overlay "Image en attente - Bientôt disponible" sur l'image du produit
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

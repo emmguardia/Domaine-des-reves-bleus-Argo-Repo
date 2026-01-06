@@ -229,7 +229,7 @@ const PolitiqueConfidentialite: React.FC = () => {
                 Commission Nationale de l'Informatique et des Libertés (CNIL) :
               </p>
               <ul className="space-y-2 text-gray-600 mt-4">
-                <li><strong>Site web :</strong> <a href="https:
+                <li><strong>Site web :</strong> <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">www.cnil.fr</a></li>
                 <li><strong>Téléphone :</strong> 01 53 73 22 22</li>
                 <li><strong>Adresse :</strong> 3 Place de Fontenoy - TSA 80715, 75334 Paris Cedex 07</li>
               </ul>

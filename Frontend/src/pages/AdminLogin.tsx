@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaLock, FaUser } from 'react-icons/fa';
@@ -11,6 +11,13 @@ function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const API_URL = getApiUrl();
+  useEffect(() => {
+    const token = secureStorage.getItem('adminToken');
+    const user = secureStorage.getItem('adminUser');
+    if (token && user) {
+      navigate('/admin-panel/dashboard', { replace: true });
+    }
+  }, [navigate]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');

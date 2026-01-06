@@ -39,12 +39,36 @@ const Header: React.FC = () => {
               <motion.div
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.5 }}
+                className="flex items-center justify-center"
               >
-                <FaDog className="text-primary text-2xl sm:text-3xl" />
+                <img 
+                  src="/images/logo.png" 
+                  alt="Domaine des reves bleus - Logo"
+                  className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 object-contain"
+                  style={{ filter: 'brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(195deg) brightness(99%) contrast(89%)' }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentNode as HTMLElement;
+                    if (parent && !parent.querySelector('.fallback-icon')) {
+                      const fallback = document.createElement('div');
+                      fallback.className = 'fallback-icon text-primary text-2xl sm:text-3xl';
+                      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                      svg.setAttribute('viewBox', '0 0 24 24');
+                      svg.setAttribute('fill', 'currentColor');
+                      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                      path.setAttribute('d', 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z');
+                      svg.appendChild(path);
+                      fallback.appendChild(svg);
+                      parent.appendChild(fallback);
+                    }
+                  }}
+                />
               </motion.div>
               <h1 className="text-base sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                <span className="hidden sm:inline">Le Domaine des Rêves Bleus</span>
-                <span className="sm:hidden">Rêves Bleus</span>
+                <span className="hidden sm:inline">Domaine des reves bleus</span>
+                <span className="sm:hidden">Domaine des reves bleus</span>
               </h1>
             </Link>
             <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">

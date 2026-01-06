@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, PlainTextResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -55,10 +55,7 @@ app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://domainedesrevesbleus.eu",
-        "https://www.domainedesrevesbleus.eu",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -216,6 +213,103 @@ async def get_openapi_endpoint():
         version=app.version,
         description=app.description,
         routes=app.routes,
+    )
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap():
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%dT10:00:00+00:00")
+    sitemap_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <url>
+    <loc>https://domainedesrevesbleus.eu/</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/products</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/services</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/contact</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/metion-legale</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/cgv</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/politique-de-confidentialite</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>"""
+    return Response(
+        content=sitemap_content,
+        media_type="application/xml; charset=utf-8",
+        status_code=200,
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET",
+        }
+    )
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots():
+    robots_content = """User-agent: *
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+Allow: /products
+Allow: /services
+Allow: /contact
+Allow: /metion-legale
+Allow: /cgv
+Allow: /politique-de-confidentialite
+Allow: /sitemap.xml
+Allow: /robots.txt
+
+User-agent: *
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+Disallow: /profile
+Disallow: /checkout
+Disallow: /order-confirmation
+Disallow: /admin-panel
+Disallow: /admin-panel/
+Disallow: /api/
+
+Sitemap: https://domainedesrevesbleus.eu/sitemap.xml
+"""
+    return PlainTextResponse(
+        content=robots_content,
+        headers={
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "public, max-age=86400",
+        }
     )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

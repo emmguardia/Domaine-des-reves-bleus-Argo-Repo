@@ -11,6 +11,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { trackPageView } from './utils/analytics';
+import SEO from './components/SEO';
 const Checkout = lazy(() => import('./pages/Checkout'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const Profile = lazy(() => import('./pages/Profile'));
@@ -35,6 +36,7 @@ function AppContent() {
   }, [location]);
   return (
     <div className="min-h-screen flex flex-col">
+      <SEO />
       {!isAdminRoute && <Header />}
       <main className="flex-grow">
         <Suspense fallback={<LoadingSpinner />}>

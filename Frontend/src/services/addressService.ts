@@ -29,8 +29,9 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
   try {
     const cleanedQuery = query.trim().replace(/\s+/g, ' ');
     if (cleanedQuery.length < 3) return [];
+    const encodedQuery = encodeURIComponent(cleanedQuery);
     const response = await fetch(
-      `https:
+      `https://api-adresse.data.gouv.fr/search/?q=${encodedQuery}&limit=5`
     );
     if (!response.ok) {
       return [];

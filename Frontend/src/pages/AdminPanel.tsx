@@ -34,11 +34,16 @@ function AdminPanel() {
     const token = secureStorage.getItem('adminToken');
     const user = secureStorage.getItem('adminUser');
     if (!token || !user) {
-      navigate('/admin-panel');
+      if (location.pathname !== '/admin-panel') {
+        navigate('/admin-panel', { replace: true });
+      }
       return;
     }
     setAdminUser(JSON.parse(user));
-  }, [navigate]);
+    if (location.pathname === '/admin-panel' || location.pathname === '/admin-panel/') {
+      navigate('/admin-panel/dashboard', { replace: true });
+    }
+  }, [navigate, location.pathname]);
   const handleLogout = () => {
     secureStorage.removeItem('adminToken');
     secureStorage.removeItem('adminUser');

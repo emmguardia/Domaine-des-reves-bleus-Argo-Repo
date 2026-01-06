@@ -50,7 +50,7 @@ const Footer: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 text-center text-gray-500 text-sm">
-            <p>Site réalisé par <a href="https:
+            <p>Site réalisé par <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">GitHub</a></p>
           </div>
         </div>
       </div>

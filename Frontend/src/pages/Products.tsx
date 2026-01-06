@@ -242,13 +242,23 @@ const Products: React.FC = () => {
                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
               >
                 <div className="relative h-48 bg-gray-200">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover cursor-pointer"
-                    onClick={() => setSelectedImage(product.image)}
-                    loading="lazy"
-                  />
+                  {product.image ? (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => setSelectedImage(product.image)}
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                      <span className="text-gray-400 text-sm">Aucune image</span>
+                    </div>
+                  )}
                   {product.isNew && (
                     <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
                       Nouveau

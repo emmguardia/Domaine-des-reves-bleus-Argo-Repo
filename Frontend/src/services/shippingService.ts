@@ -33,7 +33,7 @@ async function geocodeAddress(address: ShippingAddress): Promise<{ lat: number; 
     const query = `${address.address}, ${address.postalCode} ${address.city}, ${address.country}`;
     const encodedQuery = encodeURIComponent(query);
     const response = await fetch(
-      `https:
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodedQuery}&limit=1`
     );
     if (!response.ok) {
       throw new Error('Erreur de géocodage');

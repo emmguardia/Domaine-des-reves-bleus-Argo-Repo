@@ -1,8 +1,8 @@
 const ALLOWED_API_URLS = [
-  'https:
-  'https:
-  'http:
-  'http:
+  'https://domainedesrevesbleus.eu/api',
+  'https://api.domainedesrevesbleus.eu',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000',
 ];
 export const getApiUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_URL;
@@ -16,10 +16,12 @@ export const getApiUrl = (): string => {
     return envUrl;
   }
   if (envUrl && !ALLOWED_API_URLS.includes(envUrl)) {
-    console.warn(`Configuration API invalide: ${envUrl}. Utilisation de l'URL par défaut.`);
-    return 'http:
+    if (import.meta.env.DEV) {
+      console.warn(`Configuration API invalide: ${envUrl}. Utilisation de l'URL par défaut.`);
+    }
+    return 'http://localhost:8000';
   }
-  return 'http:
+  return 'http://localhost:8000';
 };
 export const secureStorage = {
   setItem: (key: string, value: string): void => {
