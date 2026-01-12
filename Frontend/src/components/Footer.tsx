@@ -42,7 +42,7 @@ const Footer: React.FC = () => {
         </div>
         <div className="border-t border-gray-600 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400">
-            <p>© 2024 Le Domaine des Rêves Bleus - Tous droits réservés</p>
+            <p>© 2026 Le Domaine des Rêves Bleus - Tous droits réservés</p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link to="/metion-legale" className="hover:text-primary transition-colors">Mentions légales</Link>
               <Link to="/cgv" className="hover:text-primary transition-colors">Condition Général de Vente</Link>
