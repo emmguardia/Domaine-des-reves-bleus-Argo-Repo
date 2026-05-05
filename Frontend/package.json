@@ -24,17 +24,17 @@
   "devDependencies": {
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.53.1",
-    "@vitejs/plugin-react": "^5.1.2",
-    "autoprefixer": "^10.4.18",
-    "eslint": "^9.39.2",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.5",
-    "postcss": "^8.4.35",
-    "tailwindcss": "^4.1.18",
-    "@tailwindcss/postcss": "^4.1.18",
-    "typescript": "^5.7.2",
-    "vite": "^7.3.1"
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.5.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^4.2.4",
+    "@tailwindcss/postcss": "^4.2.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
   }
 }
