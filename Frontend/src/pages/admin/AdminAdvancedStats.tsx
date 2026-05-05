@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaDownload } from 'react-icons/fa';
-import { getApiUrl } from '../../utils/security';
-import { secureStorage } from '../../utils/security';
+import { getApiUrl, adminFetch } from '../../utils/security';
 function AdminAdvancedStats() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -16,13 +15,8 @@ function AdminAdvancedStats() {
   }, [period]);
   const fetchStats = async () => {
     try {
-      const token = secureStorage.getItem('adminToken');
       const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/admin/stats/advanced?period=${period}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await adminFetch(`${apiUrl}/api/admin/stats/advanced?period=${period}`);
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -34,13 +28,8 @@ function AdminAdvancedStats() {
   };
   const handleExport = async () => {
     try {
-      const token = secureStorage.getItem('adminToken');
       const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/admin/export/orders`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await adminFetch(`${apiUrl}/api/admin/export/orders`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);

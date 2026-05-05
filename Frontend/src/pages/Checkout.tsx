@@ -27,7 +27,7 @@ interface AddressValidation {
   isValid: boolean;
   message: string;
 }
-const CheckoutForm: React.FC = () => {
+const CheckoutForm: React.FC<{ clientSecret: string }> = ({ clientSecret }) => {
   const stripe = useStripe();
   const elements = useElements();
   const { 
@@ -38,7 +38,11 @@ const CheckoutForm: React.FC = () => {
     shippingCost,
     shippingCalculation,
     isCalculatingShipping,
-    calculateShippingForAddress
+    calculateShippingForAddress,
+    isPickup,
+    setIsPickup,
+    pickupLocation,
+    setPickupLocation
   } = useCart();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -113,6 +117,9 @@ const CheckoutForm: React.FC = () => {
     return { isValid: true, message: 'Adresse valide' };
   };
   const addressValidation = validateAddress(formData.address);
+  const canSubmitDelivery = isPickup
+    ? (!!pickupLocation && !!formData.firstName && !!formData.lastName && !!formData.email && !!formData.phone)
+    : addressValidation.isValid;
   const resetPrefilledInfo = () => {
     setFormData({
       firstName: '',
@@ -172,6 +179,37 @@ const CheckoutForm: React.FC = () => {
     setIsProcessing(true);
     setMessage(null);
     try {
+      // Sauvegarder l'adresse + mettre à jour les metadata Stripe avant de confirmer
+      const paymentIntentId = clientSecret.split('_secret_')[0];
+      const shippingInfo = isPickup ? null : {
+        firstName:  formData.firstName,
+        lastName:   formData.lastName,
+        email:      formData.email,
+        phone:      formData.phone,
+        address:    formData.address,
+        city:       '',
+        postalCode: '',
+        country:    'France'
+      };
+      try {
+        const token = secureStorage.getItem('token');
+        await fetch(`${getApiUrl()}/api/payment/save-shipping`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            paymentIntentId,
+            shippingInfo,
+            shippingCost: isPickup ? 0 : shippingCost,
+            ...(isPickup && pickupLocation ? { pickupLocation } : {})
+          })
+        });
+      } catch {
+        // Non-bloquant : on continue le paiement même si save-shipping échoue
+      }
+
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -181,7 +219,7 @@ const CheckoutForm: React.FC = () => {
             name: `${formData.firstName} ${formData.lastName}`.trim(),
             phone: formData.phone,
             address: {
-              line1: formData.address,
+              line1: isPickup && pickupLocation ? `Retrait sur place - ${pickupLocation}` : formData.address,
             }
           }
         },
@@ -269,7 +307,7 @@ const CheckoutForm: React.FC = () => {
                         return `${totalWeightGrams} g (${totalWeightKg.toFixed(2)} kg)`;
                       })()}
                     </p>
-                    {shippingCalculation && (
+                    {shippingCalculation && !isPickup && (
                       <p>
                         <span className="font-medium">Poids utilisé pour le calcul :</span>{' '}
                         {shippingCalculation.weightKg.toFixed(2)} kg
@@ -284,21 +322,22 @@ const CheckoutForm: React.FC = () => {
                   </div>
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm text-gray-600">
-                      <span>Frais de port La Poste</span>
+                      <span>{isPickup ? 'Retrait sur place' : 'Frais de port La Poste'}</span>
                       <span>
-                        {shippingCalculation ? 
-                          `${shippingCalculation.basePrice.toFixed(2)} €` : 
-                          'Calcul en cours...'
-                        }
+                        {isPickup
+                          ? '0,00 €'
+                          : shippingCalculation
+                            ? `${shippingCalculation.basePrice.toFixed(2)} €`
+                            : 'Calcul en cours...'}
                       </span>
                     </div>
-                    {shippingCalculation && (
+                    {shippingCalculation && !isPickup && (
                       <div className="flex justify-between text-sm text-gray-600">
                         <span>Distance</span>
                         <span>{shippingCalculation.distanceKm} km</span>
                       </div>
                     )}
-                    {shippingCalculation && (
+                    {shippingCalculation && !isPickup && (
                       <div className="flex justify-between text-sm text-gray-600">
                         <span>Livraison estimée</span>
                         <span>{shippingCalculation.estimatedDeliveryDays} jour{shippingCalculation.estimatedDeliveryDays > 1 ? 's' : ''}</span>
@@ -335,10 +374,56 @@ const CheckoutForm: React.FC = () => {
             className="bg-white p-6 rounded-2xl shadow-lg"
           >
             <h2 className="text-2xl font-semibold mb-6 border-b pb-3">Informations de Livraison</h2>
-            <ShippingInfo 
-              shippingCalculation={shippingCalculation}
-              isCalculating={isCalculatingShipping}
-            />
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <div className="flex items-center gap-3 mb-3">
+                <input
+                  type="checkbox"
+                  id="retraitSurPlace"
+                  checked={isPickup}
+                  onChange={(e) => {
+                    setIsPickup(e.target.checked);
+                    if (!e.target.checked) setPickupLocation(null);
+                  }}
+                  className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                />
+                <label htmlFor="retraitSurPlace" className="text-sm font-medium text-gray-800">
+                  Retrait sur place (pas de frais de port)
+                </label>
+              </div>
+              {isPickup && (
+                <div className="ml-7">
+                  <p className="text-sm text-gray-600 mb-2">Lieu de retrait :</p>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="pickupLocation"
+                        checked={pickupLocation === 'Arnas'}
+                        onChange={() => setPickupLocation('Arnas')}
+                        className="h-4 w-4 text-amber-600 border-gray-300 focus:ring-amber-500"
+                      />
+                      <span className="text-sm font-medium text-gray-900">Arnas</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="pickupLocation"
+                        checked={pickupLocation === 'Mezeria'}
+                        onChange={() => setPickupLocation('Mezeria')}
+                        className="h-4 w-4 text-amber-600 border-gray-300 focus:ring-amber-500"
+                      />
+                      <span className="text-sm font-medium text-gray-900">Mezeria</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+            {!isPickup && (
+              <ShippingInfo 
+                shippingCalculation={shippingCalculation}
+                isCalculating={isCalculatingShipping}
+              />
+            )}
             {isAuthenticated && user && (
               <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center justify-between mb-3">
@@ -450,6 +535,7 @@ const CheckoutForm: React.FC = () => {
                    </div>
                 </div>
               </div>
+              {!isPickup && (
               <div>
                 <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                   Adresse de livraison complète
@@ -484,6 +570,7 @@ const CheckoutForm: React.FC = () => {
                   )}
                 </div>
               </div>
+              )}
               <div>
                 <label htmlFor="deliveryInstructions" className="block text-sm font-medium text-gray-700 mb-1">
                    Instructions de livraison <span className="text-gray-500">(Optionnel)</span>
@@ -521,7 +608,7 @@ const CheckoutForm: React.FC = () => {
                    />
                  </div>
               </div>
-              {addressValidation.isValid && (
+              {(addressValidation.isValid || isPickup) && !isPickup && (
                 <div className="mt-4 flex items-center">
                   <input
                     type="checkbox"
@@ -537,8 +624,8 @@ const CheckoutForm: React.FC = () => {
               )}
               <button
                 type="submit"
-                className={`button-primary w-full mt-4 ${isProcessing || !stripe || !elements || !isPaymentElementMounted || !addressValidation.isValid ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={isProcessing || !stripe || !elements || !isPaymentElementMounted || !addressValidation.isValid || cartItems.length === 0}
+                className={`button-primary w-full mt-4 ${isProcessing || !stripe || !elements || !isPaymentElementMounted || !canSubmitDelivery ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isProcessing || !stripe || !elements || !isPaymentElementMounted || !canSubmitDelivery || cartItems.length === 0}
               >
                 {isProcessing ? 'Traitement...' : `Payer ${cartTotal.toFixed(2)} €`}
               </button>
@@ -547,9 +634,14 @@ const CheckoutForm: React.FC = () => {
                   Chargement du module de paiement...
                 </div>
               )}
-              {!addressValidation.isValid && formData.address && (
+              {!canSubmitDelivery && !isPickup && formData.address && (
                 <div className="text-orange-600 text-sm mt-2 text-center">
                   ⚠️ Veuillez corriger l'adresse avant de procéder au paiement
+                </div>
+              )}
+              {!canSubmitDelivery && isPickup && (
+                <div className="text-amber-600 text-sm mt-2 text-center">
+                  Veuillez sélectionner un lieu de retrait (Arnas ou Mezeria)
                 </div>
               )}
               {message && <div id="payment-message" className="text-red-500 text-sm mt-2 text-center">{message}</div>}
@@ -571,7 +663,7 @@ const CheckoutPage: React.FC = () => {
   const [clientSecret, setClientSecret] = useState<string>('');
   const [loadingSecret, setLoadingSecret] = useState(true);
   const [errorSecret, setErrorSecret] = useState<string | null>(null);
-  const { cartTotal, cartItems } = useCart();
+  const { cartTotal, cartItems, shippingCost, isPickup, pickupLocation } = useCart();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const isAuthenticated = !!user;
@@ -596,7 +688,8 @@ const CheckoutPage: React.FC = () => {
         body: JSON.stringify({ 
           amount: Math.round(cartTotal * 100),
           currency: 'eur',
-          shippingCost: 0
+          shippingCost: isPickup ? 0 : shippingCost,
+          ...(isPickup && pickupLocation && { pickupLocation })
         }),
       })
       .then(async (res) => {
@@ -639,7 +732,7 @@ const CheckoutPage: React.FC = () => {
       .finally(() => {
           setLoadingSecret(false);
       });
-  }, [cartTotal, cartItems.length, isAuthenticated, token, logout, navigate]);
+  }, [cartTotal, cartItems.length, isAuthenticated, token, logout, navigate, isPickup, pickupLocation, shippingCost]);
   const appearance = {
     theme: 'stripe' as const,
     variables: {
@@ -682,7 +775,7 @@ const CheckoutPage: React.FC = () => {
   }
   return (
     <Elements key={clientSecret || 'no-secret'} stripe={stripePromise} options={options}>
-      <CheckoutForm />
+      <CheckoutForm clientSecret={clientSecret} />
     </Elements>
   );
 };

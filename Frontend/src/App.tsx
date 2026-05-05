@@ -51,7 +51,7 @@ function AppContent() {
               <Route path="/services" element={<Services />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/metion-legale" element={<MentionsLegales />} />
+              <Route path="/mentions-legales" element={<MentionsLegales />} />
               <Route path="/cgv" element={<CGV />} />
               <Route path="/politique-de-confidentialite" element={<PolitiqueConfidentialite />} />
               <Route path="/admin-panel" element={<AdminLogin />} />

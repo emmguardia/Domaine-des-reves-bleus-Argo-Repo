@@ -61,3 +61,36 @@ export const secureStorage = {
     }
   }
 };
+
+/**
+ * Fetch pour les routes admin - ajoute le token et redirige vers login en cas de 401
+ */
+export async function adminFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = secureStorage.getItem('adminToken');
+  if (!token) {
+    secureStorage.removeItem('adminToken');
+    secureStorage.removeItem('adminUser');
+    window.location.href = '/admin-panel';
+    return new Response(null, { status: 401 });
+  }
+  const headers = new Headers(options.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(url, { ...options, headers });
+  if (response.status === 401) {
+    secureStorage.removeItem('adminToken');
+    secureStorage.removeItem('adminUser');
+    window.location.href = '/admin-panel';
+  }
+  return response;
+}
+
+export function validateFileType(file: File, allowedTypes: string[]): boolean {
+  return allowedTypes.some((type) => {
+    if (type.endsWith('/*')) return file.type.startsWith(type.slice(0, -1));
+    return file.type === type;
+  });
+}
+
+export function validateFileSize(file: File, maxSizeMB: number): boolean {
+  return file.size <= maxSizeMB * 1024 * 1024;
+}

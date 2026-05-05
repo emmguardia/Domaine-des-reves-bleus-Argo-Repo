@@ -57,6 +57,12 @@ const RegisterForm: React.FC = () => {
           const errorMessages = JSON.parse(err.message);
           if (Array.isArray(errorMessages)) {
             setError(errorMessages.join('\n'));
+          } else if (errorMessages?.detail) {
+            setError(errorMessages.detail);
+          } else if (errorMessages?.error) {
+            setError(errorMessages.error);
+          } else if (errorMessages?.msg) {
+            setError(errorMessages.msg);
           } else {
             setError(errorMessages.message || "Une erreur est survenue lors de l'inscription");
           }

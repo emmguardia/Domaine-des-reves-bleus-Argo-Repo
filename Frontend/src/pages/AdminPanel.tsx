@@ -16,7 +16,9 @@ import {
   FaTruck,
   FaHistory,
   FaExclamationTriangle,
-  FaUser
+  FaUser,
+  FaHome,
+  FaEuroSign
 } from 'react-icons/fa';
 import AdminDashboard from './admin/AdminDashboard';
 import AdminProducts from './admin/AdminProducts';
@@ -25,6 +27,7 @@ import AdminOrderHistory from './admin/AdminOrderHistory';
 import AdminCategories from './admin/AdminCategories';
 import AdminUsers from './admin/AdminUsers';
 import AdminAdvancedStats from './admin/AdminAdvancedStats';
+import AdminServices from './admin/AdminServices';
 function AdminPanel() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -67,6 +70,7 @@ function AdminPanel() {
     { path: '/admin-panel/orders', icon: FaShoppingCart, label: 'Commandes' },
     { path: '/admin-panel/history', icon: FaHistory, label: 'Historique' },
     { path: '/admin-panel/users', icon: FaUser, label: 'Utilisateurs' },
+    { path: '/admin-panel/services', icon: FaEuroSign, label: 'Prix services' },
   ];
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,6 +105,13 @@ function AdminPanel() {
               <p className="text-sm font-medium text-gray-700">{adminUser.username}</p>
               <p className="text-xs text-gray-500">Administrateur</p>
             </div>
+            <Link
+              to="/"
+              className="w-full flex items-center space-x-3 px-4 py-3 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors mb-2"
+            >
+              <FaHome className="w-5 h-5" />
+              <span className="font-medium">Retour au site</span>
+            </Link>
             <button
               onClick={handleLogout}
               className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -120,6 +131,7 @@ function AdminPanel() {
           <Route path="/orders" element={<AdminOrders />} />
           <Route path="/history" element={<AdminOrderHistory />} />
           <Route path="/users" element={<AdminUsers />} />
+          <Route path="/services" element={<AdminServices />} />
           <Route path="/" element={<AdminDashboard />} />
         </Routes>
       </div>

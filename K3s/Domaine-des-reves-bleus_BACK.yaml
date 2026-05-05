@@ -8,7 +8,7 @@ spec:
     app: domaine-des-reves-bleus-backend
   ports:
     - protocol: TCP
-      port: 8000
+      port: 8001
       targetPort: 8000
 ---
 apiVersion: apps/v1
@@ -18,6 +18,11 @@ metadata:
   namespace: domaine-des-reves-bleus
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: domaine-des-reves-bleus-backend
@@ -28,26 +33,30 @@ spec:
     spec:
       containers:
       - name: backend
-        image: domaine-des-reves-bleus-backend:latest
+        image: domaine-des-reves-bleus-back:latest
         imagePullPolicy: IfNotPresent
         resources:
           requests:
-            cpu: "100m"      
-            memory: "200Mi"  
+            cpu: "100m"
+            memory: "256Mi"
           limits:
-            cpu: "250m"      
-            memory: "512Mi"  
+            cpu: "500m"
+            memory: "512Mi"
         ports:
         - containerPort: 8000
         workingDir: /app
         volumeMounts:
-        - name: backend
-          mountPath: /app
-          readOnly: false
         - name: uploads
           mountPath: /app/uploads
           readOnly: false
+        - name: secrets
+          mountPath: /app/secrets
+          readOnly: true
         env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "8000"
         - name: STRIPE_SECRET_KEY
           valueFrom:
             secretKeyRef:
@@ -83,16 +92,38 @@ spec:
             secretKeyRef:
               name: domaine-des-reves-bleus-secrets
               key: mariadb-database
+        - name: MARIADB_PORT
+          value: "3306"
         - name: FRONTEND_URL
           value: "https://domainedesrevesbleus.eu"
-        - name: PORT
-          value: "8000"
+        - name: EMAIL_SERVICE_URL
+          value: "http://email-service.email-service.svc.cluster.local:8080"
+        - name: JWT_PRIVATE_KEY_PATH
+          value: "/app/secrets/jwt_private_key.pem"
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
       volumes:
-      - name: backend
-        hostPath:
-          path: /home/zozoo/Domaine_des_reves_bleus/Backend
-          type: Directory
       - name: uploads
-        hostPath:
-          path: /home/zozoo/Domaine_des_reves_bleus/Backend/uploads
-          type: Directory
+        emptyDir: {}
+      - name: secrets
+        secret:
+          secretName: domaine-des-reves-bleus-secrets
+          items:
+          - key: jwt-private-key
+            path: jwt_private_key.pem
+          - key: jwt-public-key
+            path: jwt_public_key.pem

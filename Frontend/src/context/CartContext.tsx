@@ -13,7 +13,8 @@ interface CartItem {
   quantity: number;
   image: string;
   volume?: string | null;
-  weightGrams?: number; 
+  fragrance?: string | null;
+  weightGrams?: number;
 }
 interface CartContextType {
   cartItems: CartItem[];
@@ -31,6 +32,10 @@ interface CartContextType {
   shippingCalculation: any | null;
   isCalculatingShipping: boolean;
   calculateShippingForAddress: (address: string) => Promise<void>;
+  isPickup: boolean;
+  setIsPickup: (v: boolean) => void;
+  pickupLocation: 'Arnas' | 'Mezeria' | null;
+  setPickupLocation: (v: 'Arnas' | 'Mezeria' | null) => void;
 }
 const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -38,6 +43,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
   const [shippingCalculation, setShippingCalculation] = useState<any | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState<boolean>(false);
+  const [isPickup, setIsPickup] = useState<boolean>(false);
+  const [pickupLocation, setPickupLocation] = useState<'Arnas' | 'Mezeria' | null>(null);
   const { user, logout } = useAuth();
   const isUpdatingFromBackend = useRef(false);
   useEffect(() => {
@@ -236,6 +243,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCartItems([]);
     setDeliveryAddress('');
     setShippingCalculation(null);
+    setIsPickup(false);
+    setPickupLocation(null);
   };
   const calculateShippingForAddress = async (address: string) => {
     if (!address || cartItems.length === 0) {
@@ -285,15 +294,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendOrderConfirmation = async (orderData: any): Promise<boolean> => {
     if (!user) return false;
     try {
-      const orderItems = cartItems.map(item => 
-        `- ${item.name}${item.volume ? ` (${item.volume})` : ''} x${item.quantity} - ${(item.price * item.quantity).toFixed(2)}€`
-      ).join('\n');
+      // Le backend envoie déjà l'email via le webhook Stripe
+      // Cette fonction est conservée comme backup ou pour les cas où le webhook échoue
       const success = await sendOrderConfirmationEmail({
         to_email: user.email,
         to_name: `${user.firstName} ${user.lastName}`,
         order_number: orderData.orderNumber || `CMD-${Date.now()}`,
-        order_items: orderItems,
-        order_total: `Sous-total: ${cartSubtotal.toFixed(2)}€\nFrais de port: ${shippingCost.toFixed(2)}€\nTotal: ${cartTotal.toFixed(2)}€`,
+        order_items: JSON.stringify(cartItems.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        }))),
+        order_total: cartTotal.toFixed(2),
         shipping_address: orderData.shippingAddress || 'Adresse non spécifiée'
       });
       return success;
@@ -313,13 +325,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return totalWeight;
   }, [cartItems]);
   const shippingCost = useMemo(() => {
-    if (cartItems.length === 0) return 0;
+    if (cartItems.length === 0 || isPickup) return 0;
     if (shippingCalculation) {
       return shippingCalculation.totalShipping;
     }
     const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
     return fallbackCalculation.totalShipping;
-  }, [cartItems, shippingCalculation, cartWeightGrams]);
+  }, [cartItems, shippingCalculation, cartWeightGrams, isPickup]);
   const cartTotal = useMemo(() => {
     return cartSubtotal + shippingCost;
   }, [cartSubtotal, shippingCost]);
@@ -340,7 +352,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setDeliveryAddress,
         shippingCalculation,
         isCalculatingShipping,
-        calculateShippingForAddress
+        calculateShippingForAddress,
+        isPickup,
+        setIsPickup,
+        pickupLocation,
+        setPickupLocation
       }}
     >
       {children}

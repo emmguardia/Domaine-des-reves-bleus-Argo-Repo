@@ -3,7 +3,7 @@ import { Menu, X, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaDog } from 'react-icons/fa';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Cart from './Cart';
 import { useCart } from '../context/CartContext';
 const Header: React.FC = () => {
@@ -223,7 +223,9 @@ const Header: React.FC = () => {
           </motion.div>
         )}
       </header>
-      {isCartOpen && <Cart onClose={() => setIsCartOpen(false)} />}
+      <AnimatePresence>
+        {isCartOpen && <Cart onClose={() => setIsCartOpen(false)} />}
+      </AnimatePresence>
     </>
   );
 };

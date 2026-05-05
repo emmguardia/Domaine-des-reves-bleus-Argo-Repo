@@ -176,9 +176,10 @@ const Products: React.FC = () => {
       finalName = `${product.name} - ${selectedFragrance}`;
     }
     addToCart({
-      id: product.id,
+      id: typeof product.id === 'string' ? parseInt(product.id, 10) : product.id,
       name: finalName,
       price: finalPrice,
+      quantity: 1,
       image: product.image,
       volume: selectedVolume || null,
       fragrance: selectedFragrance || null,
@@ -205,7 +206,7 @@ const Products: React.FC = () => {
     );
   }
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 pt-24 sm:pt-28 md:pt-32 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -389,11 +390,11 @@ const Products: React.FC = () => {
         )}
       </div>
       {selectedImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto"
           onClick={() => setSelectedImage(null)}
         >
-          <div 
+          <div
             className="relative max-w-6xl max-h-full w-full"
             onClick={(e) => e.stopPropagation()}
           >

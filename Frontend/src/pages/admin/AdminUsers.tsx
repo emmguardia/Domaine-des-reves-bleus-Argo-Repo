@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaTrash, FaUser } from 'react-icons/fa';
-import { getApiUrl } from '../../utils/security';
-import { secureStorage } from '../../utils/security';
+import { getApiUrl, adminFetch } from '../../utils/security';
 import { logger } from '../../utils/logger';
 interface User {
   id: number;
@@ -24,12 +23,7 @@ function AdminUsers() {
   }, []);
   const fetchUsers = async () => {
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await adminFetch(`${API_URL}/api/admin/users`);
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
@@ -43,12 +37,8 @@ function AdminUsers() {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/users/${id}`, {
+      const response = await adminFetch(`${API_URL}/api/admin/users/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       });
       if (response.ok) {
         fetchUsers();

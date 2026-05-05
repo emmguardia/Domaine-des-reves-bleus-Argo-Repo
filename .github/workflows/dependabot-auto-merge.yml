@@ -1,0 +1,54 @@
+name: Dependabot Auto-Merge
+
+# Approuve et merge les PRs Dependabot patch/minor automatiquement
+# puis déclenche explicitement build-and-push pour que les nouvelles
+# images soient buildées, pushées sur GHCR et le digest piqué dans
+# values.yaml → ArgoCD déploie sans intervention manuelle.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write   # nécessaire pour gh workflow run
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve PR (patch / minor)
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge (patch / minor)
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Déclenche build-and-push explicitement après merge pour
+      # s'assurer que le digest est piqué dans values.yaml même si
+      # le push event de merge a des permissions restreintes
+      - name: Trigger build-and-push (digest pin + déploiement ArgoCD)
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: |
+          sleep 10  # laisse le merge se finaliser
+          gh workflow run build-and-push.yml --ref main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

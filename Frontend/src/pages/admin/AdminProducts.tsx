@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaPlus, FaEdit, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
-import { getApiUrl } from '../../utils/security';
-import { secureStorage } from '../../utils/security';
+import { getApiUrl, adminFetch } from '../../utils/security';
 import { logger } from '../../utils/logger';
+import ImageUpload from '../../components/ImageUpload';
 interface Product {
   _id: string;
   name: string;
@@ -17,9 +17,11 @@ interface Product {
 }
 function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [useCustomCategory, setUseCustomCategory] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -33,15 +35,31 @@ function AdminProducts() {
   const API_URL = getApiUrl();
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
+  
+  const fetchCategories = async () => {
+    try {
+      const response = await adminFetch(`${API_URL}/api/admin/categories`);
+      if (response.ok) {
+        const data = await response.json();
+        // Extraire les noms des catégories
+        const categoryNames = data.map((cat: any) => cat.name).sort();
+        setCategories(categoryNames);
+      } else {
+        logger.error('Erreur lors de la récupération des catégories:', response.status);
+        // En cas d'erreur, laisser la liste vide (pas de catégories par défaut)
+        setCategories([]);
+      }
+    } catch (error) {
+      logger.error('Erreur lors de la récupération des catégories:', error);
+      // En cas d'erreur, laisser la liste vide (pas de catégories par défaut)
+      setCategories([]);
+    }
+  };
   const fetchProducts = async () => {
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/products`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await adminFetch(`${API_URL}/api/admin/products`);
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -68,18 +86,38 @@ function AdminProducts() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = secureStorage.getItem('adminToken');
+      // Si une nouvelle catégorie a été saisie, la créer d'abord dans la DB
+      if (useCustomCategory && formData.category.trim()) {
+        const categoryResponse = await adminFetch(`${API_URL}/api/admin/categories`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.category.trim(),
+            description: null,
+          }),
+        });
+        
+        if (!categoryResponse.ok) {
+          const errorData = await categoryResponse.json();
+          // Si la catégorie existe déjà, c'est OK, on continue
+          if (!errorData.detail || !errorData.detail.includes('existe déjà')) {
+            alert(errorData.detail || 'Erreur lors de la création de la catégorie');
+            return;
+          }
+        } else {
+          // Rafraîchir les catégories après création
+          await fetchCategories();
+        }
+      }
+      
       const productId = editingProduct?._id || editingProduct?.id;
       const url = editingProduct
         ? `${API_URL}/api/admin/products/${productId}`
         : `${API_URL}/api/admin/products`;
       const method = editingProduct ? 'PUT' : 'POST';
-      const response = await fetch(url, {
+      const response = await adminFetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
           price: parseFloat(formData.price),
@@ -91,6 +129,7 @@ function AdminProducts() {
       if (response.ok) {
         setShowModal(false);
         setEditingProduct(null);
+        setUseCustomCategory(false);
         setFormData({
           name: '',
           description: '',
@@ -101,10 +140,12 @@ function AdminProducts() {
           weightGrams: '100',
           isPlaceholder: false,
         });
-        fetchProducts();
+        await fetchProducts();
+        await fetchCategories(); // Rafraîchir les catégories après ajout/modification
       }
     } catch (error) {
       logger.error('Erreur lors de la sauvegarde du produit:', error);
+      alert('Erreur lors de la sauvegarde du produit');
     }
   };
   const handleEdit = (product: Product) => {
@@ -112,6 +153,8 @@ function AdminProducts() {
     const isPlaceholder = product.isPlaceholder !== undefined 
       ? product.isPlaceholder 
       : (product as any).is_placeholder || false;
+    const categoryExists = categories.includes(product.category);
+    setUseCustomCategory(!categoryExists);
     setFormData({
       name: product.name,
       description: product.description,
@@ -129,13 +172,9 @@ function AdminProducts() {
       return;
     }
     try {
-      const token = secureStorage.getItem('adminToken');
       const productId = product._id || product.id;
-      const response = await fetch(`${API_URL}/api/admin/products/${productId}`, {
+      const response = await adminFetch(`${API_URL}/api/admin/products/${productId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       });
       if (response.ok) {
         fetchProducts();
@@ -146,6 +185,7 @@ function AdminProducts() {
   };
   const handleNewProduct = () => {
     setEditingProduct(null);
+    setUseCustomCategory(false);
     setFormData({
       name: '',
       description: '',
@@ -154,6 +194,7 @@ function AdminProducts() {
       category: '',
       stock: '',
       weightGrams: '100',
+      isPlaceholder: false,
     });
     setShowModal(true);
   };
@@ -260,7 +301,7 @@ function AdminProducts() {
         ))}
       </div>
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -325,43 +366,21 @@ function AdminProducts() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    URL de l'image
+                    Image du produit
                   </label>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={formData.image}
-                      onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                      className="form-input w-full"
-                      placeholder="https://exemple.com/image.jpg"
-                    />
-                    {editingProduct && editingProduct.image && (
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">URL actuelle :</p>
-                        <p className="text-sm text-gray-800 break-all font-mono">{editingProduct.image}</p>
-                      </div>
-                    )}
-                    {formData.image && (
-                      <div className="space-y-2">
-                        <img
-                          src={formData.image}
-                          alt="Preview"
-                          className="w-32 h-32 object-cover rounded-lg border"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, image: '' })}
-                          className="text-sm text-red-600 hover:text-red-700"
-                        >
-                          Retirer l'image
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <ImageUpload
+                    label=""
+                    currentImage={formData.image}
+                    onImageUploaded={(url) => setFormData({ ...formData, image: url })}
+                  />
+                  <p className="text-xs text-gray-500 mt-2">Ou collez une URL :</p>
+                  <input
+                    type="text"
+                    value={formData.image?.startsWith('http') ? formData.image : ''}
+                    onChange={(e) => setFormData({ ...formData, image: e.target.value.trim() })}
+                    className="form-input w-full mt-1"
+                    placeholder="https://exemple.com/image.jpg"
+                  />
                 </div>
                 <div>
                   <label className="flex items-center space-x-2">
@@ -384,13 +403,53 @@ function AdminProducts() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Catégorie
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="form-input w-full"
-                    />
+                    <div className="space-y-2">
+                      {!useCustomCategory ? (
+                        <select
+                          required
+                          value={formData.category}
+                          onChange={(e) => {
+                            if (e.target.value === '__custom__') {
+                              setUseCustomCategory(true);
+                              setFormData({ ...formData, category: '' });
+                            } else {
+                              setFormData({ ...formData, category: e.target.value });
+                            }
+                          }}
+                          className="form-input w-full"
+                        >
+                          <option value="">Sélectionner une catégorie</option>
+                          {categories.map((cat) => (
+                            <option key={cat} value={cat}>
+                              {cat}
+                            </option>
+                          ))}
+                          <option value="__custom__">+ Ajouter une nouvelle catégorie</option>
+                        </select>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            required
+                            value={formData.category}
+                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                            className="form-input flex-1"
+                            placeholder="Nouvelle catégorie"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUseCustomCategory(false);
+                              setFormData({ ...formData, category: '' });
+                            }}
+                            className="px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

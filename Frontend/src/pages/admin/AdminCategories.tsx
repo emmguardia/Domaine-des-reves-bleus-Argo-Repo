@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
-import { getApiUrl } from '../../utils/security';
-import { secureStorage } from '../../utils/security';
+import { getApiUrl, adminFetch } from '../../utils/security';
 import { logger } from '../../utils/logger';
 interface Category {
   id: number;
@@ -25,15 +24,13 @@ function AdminCategories() {
   }, []);
   const fetchCategories = async () => {
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/categories/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await adminFetch(`${API_URL}/api/admin/categories`);
+      
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
+      } else {
+        logger.error('Erreur lors de la récupération des catégories:', response.status);
       }
     } catch (error) {
       logger.error('Erreur:', error);
@@ -44,39 +41,39 @@ function AdminCategories() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = secureStorage.getItem('adminToken');
       const url = editingCategory
         ? `${API_URL}/api/admin/categories/${editingCategory.id}`
-        : `${API_URL}/api/admin/categories/`;
+        : `${API_URL}/api/admin/categories`;
       const method = editingCategory ? 'PUT' : 'POST';
-      const response = await fetch(url, {
+      
+      const response = await adminFetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
+      
       if (response.ok) {
         setShowModal(false);
         setEditingCategory(null);
         setFormData({ name: '', description: '' });
         fetchCategories();
+      } else {
+        const errorData = await response.json();
+        alert(errorData.detail || 'Erreur lors de la sauvegarde de la catégorie');
       }
     } catch (error) {
       logger.error('Erreur:', error);
+      alert('Erreur lors de la sauvegarde de la catégorie');
     }
   };
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ?')) return;
+  const handleDelete = async (category: Category) => {
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la catégorie "${category.name}" ?`)) return;
+    
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/categories/${id}`, {
+      const response = await adminFetch(`${API_URL}/api/admin/categories/${category.id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       });
+      
       if (response.ok) {
         fetchCategories();
       } else {
@@ -85,6 +82,7 @@ function AdminCategories() {
       }
     } catch (error) {
       logger.error('Erreur:', error);
+      alert('Erreur lors de la suppression de la catégorie');
     }
   };
   const handleEdit = (category: Category) => {
@@ -141,7 +139,7 @@ function AdminCategories() {
                     <FaEdit />
                   </button>
                   <button
-                    onClick={() => handleDelete(category.id)}
+                    onClick={() => handleDelete(category)}
                     className="text-red-600 hover:text-red-700"
                   >
                     <FaTrash />
@@ -153,8 +151,8 @@ function AdminCategories() {
         </table>
       </div>
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
             <h2 className="text-2xl font-bold mb-4">
               {editingCategory ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
             </h2>

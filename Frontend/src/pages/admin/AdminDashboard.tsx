@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaBox, FaShoppingCart, FaExclamationTriangle, FaEuroSign } from 'react-icons/fa';
-import { getApiUrl } from '../../utils/security';
-import { secureStorage } from '../../utils/security';
+import { getApiUrl, adminFetch } from '../../utils/security';
 import { logger } from '../../utils/logger';
 function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -11,13 +10,18 @@ function AdminDashboard() {
   useEffect(() => {
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') fetchStats();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
   const fetchStats = async () => {
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const response = await adminFetch(`${API_URL}/api/admin/stats`, {
+        cache: 'no-store',
       });
       if (response.ok) {
         const contentType = response.headers.get('content-type');
@@ -65,8 +69,8 @@ function AdminDashboard() {
       color: 'bg-yellow-500',
     },
     {
-      title: 'Chiffre d\'Affaires',
-      value: `${(stats?.revenue?.total || 0).toFixed(2)} €`,
+      title: 'Revenu brut',
+      value: `${(stats?.revenue?.gross || 0).toFixed(2)} €`,
       icon: FaEuroSign,
       color: 'bg-green-500',
     },
@@ -104,6 +108,19 @@ function AdminDashboard() {
             </motion.div>
           );
         })}
+      </div>
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Revenus</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex justify-between items-center border rounded-lg p-4">
+            <span className="text-gray-600">Brut (avec livraison)</span>
+            <span className="text-xl font-bold text-green-600">{(stats?.revenue?.gross || 0).toFixed(2)} €</span>
+          </div>
+          <div className="flex justify-between items-center border rounded-lg p-4">
+            <span className="text-gray-600">Net (sans livraison)</span>
+            <span className="text-xl font-bold text-blue-600">{(stats?.revenue?.net || 0).toFixed(2)} €</span>
+          </div>
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div

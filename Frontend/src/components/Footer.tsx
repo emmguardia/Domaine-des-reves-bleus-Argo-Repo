@@ -21,6 +21,7 @@ const Footer: React.FC = () => {
               <li><Link to="/" className="text-gray-300 hover:text-primary">Accueil</Link></li>
               <li><Link to="/products" className="text-gray-300 hover:text-primary">Boutique</Link></li>
               <li><Link to="/contact" className="text-gray-300 hover:text-primary">Contact</Link></li>
+              <li><Link to="/admin-panel" className="text-gray-300 hover:text-primary">Panel Admin</Link></li>
             </ul>
           </div>
           <div>
@@ -44,13 +45,13 @@ const Footer: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400">
             <p>© 2026 Le Domaine des Rêves Bleus - Tous droits réservés</p>
             <div className="flex flex-wrap justify-center gap-4">
-              <Link to="/metion-legale" className="hover:text-primary transition-colors">Mentions légales</Link>
+              <Link to="/mentions-legales" className="hover:text-primary transition-colors">Mentions légales</Link>
               <Link to="/cgv" className="hover:text-primary transition-colors">Condition Général de Vente</Link>
               <Link to="/politique-de-confidentialite" className="hover:text-primary transition-colors">Politique de Confidentialité</Link>
             </div>
           </div>
           <div className="mt-4 text-center text-gray-500 text-sm">
-            <p>Site réalisé par <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">GitHub</a></p>
+            <p>Site réalisé par <a href="https://zenixweb.fr" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">ZenixWeb</a></p>
           </div>
         </div>
       </div>

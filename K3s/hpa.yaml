@@ -16,4 +16,24 @@ spec:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 50  # Si le CPU dépasse 50% de la limite (soit 125m), il crée un nouveau pod
+        averageUtilization: 50
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: domaine-des-reves-bleus-frontend-hpa
+  namespace: domaine-des-reves-bleus
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: domaine-des-reves-bleus-frontend
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50

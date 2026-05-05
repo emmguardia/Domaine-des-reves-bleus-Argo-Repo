@@ -38,7 +38,9 @@ const Contact: React.FC = () => {
       const result = await sendContactEmail({
         from_name: `${formData.firstName} ${formData.lastName}`.trim(),
         from_email: formData.email,
-        message: formData.message
+        message: formData.message,
+        phone: formData.phone || undefined,
+        subject: 'Nouveau message de contact'
       });
       if (result.success) {
         setSubmitMessage({ type: 'success', text: result.message });

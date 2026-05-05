@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FaCheck, FaTruck, FaTimes } from 'react-icons/fa';
-import { getApiUrl } from '../../utils/security';
-import { secureStorage } from '../../utils/security';
+import { FaCheck, FaTruck, FaTimes, FaArrowLeft } from 'react-icons/fa';
+import { getApiUrl, adminFetch } from '../../utils/security';
 import { logger } from '../../utils/logger';
 interface OrderItem {
   name: string;
@@ -12,22 +11,30 @@ interface OrderItem {
 }
 interface Order {
   _id: string;
-  paymentIntentId: string;
-  items: OrderItem[];
-  totalAmount: number;
-  shippingCost: number;
+  id?: string | number;
+  paymentIntentId?: string;
+  payment_intent_id?: string;
+  items?: OrderItem[];
+  totalAmount?: number;
+  total_amount?: number;
+  shippingCost?: number;
+  shipping_cost?: number;
   shippingAddress: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    address: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
     city?: string;
     postalCode?: string;
+    pickupLocation?: 'Arnas' | 'Mezeria';
   };
+  shipping_address?: string | Record<string, unknown>;
   status: string;
-  paymentStatus: string;
-  createdAt: string;
+  paymentStatus?: string;
+  payment_status?: string;
+  createdAt?: string;
+  created_at?: string;
   user?: {
     firstName: string;
     lastName: string;
@@ -35,6 +42,14 @@ interface Order {
   };
 }
 function AdminOrders() {
+  const getOrderId = (order: Order) => String(order._id || order.id || '');
+  const getPaymentIntentId = (order: Order) => String(order.paymentIntentId || order.payment_intent_id || '');
+  const getCreatedAt = (order: Order) => order.createdAt || order.created_at || new Date().toISOString();
+  const getItems = (order: Order) => Array.isArray(order.items) ? order.items : [];
+  const getTotalAmount = (order: Order) => Number(order.totalAmount ?? order.total_amount ?? 0);
+  const getShippingCost = (order: Order) => Number(order.shippingCost ?? order.shipping_cost ?? 0);
+  const getPaymentStatus = (order: Order) => String(order.paymentStatus || order.payment_status || '').toLowerCase();
+  const getOrderStatus = (order: Order) => String(order.status || '').toLowerCase();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -44,15 +59,12 @@ function AdminOrders() {
   }, [filter]);
   const fetchOrders = async () => {
     try {
-      const token = secureStorage.getItem('adminToken');
-      const url = filter !== 'all'
-        ? `${API_URL}/api/admin/orders?status=${filter}`
-        : `${API_URL}/api/admin/orders`;
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const url = filter === 'failed'
+        ? `${API_URL}/api/admin/orders?paymentStatus=failed`
+        : (filter !== 'all'
+          ? `${API_URL}/api/admin/orders?status=${filter}`
+          : `${API_URL}/api/admin/orders`);
+      const response = await adminFetch(url);
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -72,13 +84,9 @@ function AdminOrders() {
   };
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
+      const response = await adminFetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
       if (response.ok) {
@@ -93,12 +101,8 @@ function AdminOrders() {
       return;
     }
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
+      const response = await adminFetch(`${API_URL}/api/admin/orders/${orderId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       });
       if (response.ok) {
         fetchOrders();
@@ -109,6 +113,7 @@ function AdminOrders() {
   };
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'pending':
       case 'paid':
         return 'bg-green-100 text-green-700';
       case 'preparing':
@@ -117,6 +122,8 @@ function AdminOrders() {
         return 'bg-purple-100 text-purple-700';
       case 'delivered':
         return 'bg-gray-100 text-gray-700';
+      case 'cancelled':
+        return 'bg-red-100 text-red-700';
       default:
         return 'bg-yellow-100 text-yellow-700';
     }
@@ -124,13 +131,16 @@ function AdminOrders() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'paid':
-        return 'Payée';
+      case 'pending':
+        return 'En attente';
       case 'preparing':
         return 'En préparation';
       case 'shipped':
         return 'Envoyée';
       case 'delivered':
         return 'Livrée';
+      case 'cancelled':
+        return 'Annulée';
       default:
         return 'En attente';
     }
@@ -155,7 +165,7 @@ function AdminOrders() {
         <p className="text-gray-600 mt-2">Gérez les commandes de vos clients</p>
       </motion.div>
       <div className="mb-6 flex space-x-2">
-        {['all', 'paid', 'preparing', 'shipped'].map((status) => (
+        {['all', 'pending', 'preparing', 'shipped', 'cancelled', 'failed'].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -165,14 +175,14 @@ function AdminOrders() {
                 : 'bg-white text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {status === 'all' ? 'Toutes' : getStatusLabel(status)}
+            {status === 'all' ? 'Toutes' : (status === 'failed' ? 'Paiement échoué' : getStatusLabel(status))}
           </button>
         ))}
       </div>
       <div className="space-y-4">
         {orders.map((order) => (
           <motion.div
-            key={order._id}
+            key={getOrderId(order)}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-xl shadow-lg p-6"
@@ -180,10 +190,10 @@ function AdminOrders() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Commande #{order.paymentIntentId.slice(-8)}
+                  Commande #{(getPaymentIntentId(order) || 'N/A').slice(-8)}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  {new Date(order.createdAt).toLocaleDateString('fr-FR', {
+                  {new Date(getCreatedAt(order)).toLocaleDateString('fr-FR', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -192,15 +202,24 @@ function AdminOrders() {
                   })}
                 </p>
               </div>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                {getStatusLabel(order.status)}
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(getOrderStatus(order))}`}>
+                {getStatusLabel(getOrderStatus(order))}
+              </span>
+            </div>
+            <div className="mb-4">
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                getPaymentStatus(order) === 'succeeded'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700'
+              }`}>
+                {getPaymentStatus(order) === 'succeeded' ? 'Paiement validé' : 'Paiement échoué'}
               </span>
             </div>
             <div className="grid md:grid-cols-2 gap-6 mb-4">
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Articles</h4>
                 <div className="space-y-2">
-                  {order.items.map((item, index) => (
+                  {getItems(order).map((item, index) => (
                     <div key={index} className="flex items-center space-x-3">
                       <img
                         src={item.image}
@@ -221,17 +240,36 @@ function AdminOrders() {
                 </div>
               </div>
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Livraison</h4>
+                <h4 className="font-medium text-gray-900 mb-2">
+                  {(() => {
+                    const ship = typeof order.shipping_address === 'string'
+                      ? (() => { try { return JSON.parse(order.shipping_address); } catch { return null; } })()
+                      : (order.shipping_address || order.shippingAddress);
+                    const isPickup = ship?.address?.startsWith?.('Retrait sur place') || ship?.pickupLocation;
+                    return isPickup ? 'Retrait sur place' : 'Livraison';
+                  })()}
+                </h4>
                 <div className="text-sm text-gray-600 space-y-1">
-                  <p>
-                    <strong>{order.shippingAddress.firstName} {order.shippingAddress.lastName}</strong>
-                  </p>
-                  <p>{order.shippingAddress.address}</p>
-                  {order.shippingAddress.city && (
-                    <p>{order.shippingAddress.postalCode} {order.shippingAddress.city}</p>
-                  )}
-                  <p>{order.shippingAddress.email}</p>
-                  <p>{order.shippingAddress.phone}</p>
+                  {(() => {
+                    const ship = typeof order.shipping_address === 'string'
+                      ? (() => { try { return JSON.parse(order.shipping_address); } catch { return null; } })()
+                      : (order.shipping_address || order.shippingAddress);
+                    const isPickup = ship?.address?.startsWith?.('Retrait sur place') || ship?.pickupLocation;
+                    if (isPickup) {
+                      const loc = ship?.pickupLocation || (ship?.address?.includes('Mezeria') ? 'Mezeria' : 'Arnas');
+                      return <p className="font-medium text-gray-900">Lieu : {loc}</p>;
+                    }
+                    const s = order.shippingAddress || ship;
+                    return (
+                      <>
+                        <p><strong>{s?.firstName} {s?.lastName}</strong></p>
+                        <p>{s?.address}</p>
+                        {s?.city && <p>{s?.postalCode} {s?.city}</p>}
+                        <p>{s?.email}</p>
+                        <p>{s?.phone}</p>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -239,31 +277,49 @@ function AdminOrders() {
               <div>
                 <p className="text-sm text-gray-600">Total</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {(order.totalAmount + order.shippingCost).toFixed(2)} €
+                  {(getTotalAmount(order) + getShippingCost(order)).toFixed(2)} €
                 </p>
               </div>
               <div className="flex space-x-2">
-                {order.status === 'paid' && (
+                {getOrderStatus(order) === 'preparing' && (
                   <button
-                    onClick={() => updateOrderStatus(order._id, 'preparing')}
+                    onClick={() => updateOrderStatus(getOrderId(order), 'pending')}
+                    className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center space-x-2"
+                  >
+                    <FaArrowLeft className="w-4 h-4" />
+                    <span>Revenir attente</span>
+                  </button>
+                )}
+                {getOrderStatus(order) === 'shipped' && (
+                  <button
+                    onClick={() => updateOrderStatus(getOrderId(order), 'preparing')}
+                    className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center space-x-2"
+                  >
+                    <FaArrowLeft className="w-4 h-4" />
+                    <span>Revenir préparation</span>
+                  </button>
+                )}
+                {(getOrderStatus(order) === 'pending' || getOrderStatus(order) === 'paid') && (
+                  <button
+                    onClick={() => updateOrderStatus(getOrderId(order), 'preparing')}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                   >
                     <FaCheck className="w-4 h-4" />
                     <span>Préparer</span>
                   </button>
                 )}
-                {order.status === 'preparing' && (
+                {getOrderStatus(order) === 'preparing' && (
                   <button
-                    onClick={() => updateOrderStatus(order._id, 'shipped')}
+                    onClick={() => updateOrderStatus(getOrderId(order), 'shipped')}
                     className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
                   >
                     <FaTruck className="w-4 h-4" />
                     <span>Envoyer</span>
                   </button>
                 )}
-                {(order.status === 'shipped' || order.status === 'delivered') && (
+                {(getOrderStatus(order) === 'shipped' || getOrderStatus(order) === 'delivered') && (
                   <button
-                    onClick={() => deleteOrder(order._id)}
+                    onClick={() => deleteOrder(getOrderId(order))}
                     className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
                   >
                     <FaTimes className="w-4 h-4" />

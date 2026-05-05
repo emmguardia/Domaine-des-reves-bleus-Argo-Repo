@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -12,37 +12,25 @@ export default defineConfig({
         secure: false
       },
     },
-    headers: {
-      'Content-Security-Policy': `
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https:
-        style-src 'self' 'unsafe-inline' https:
-        img-src 'self' data: https:;
-        font-src 'self' https:
-        connect-src 'self' https:
-        frame-src 'self' https:
-        object-src 'none';
-        base-uri 'self';
-        form-action 'self';
-      `.replace(/\s+/g, ' ').trim()
-    }
   },
   build: {
     rollupOptions: {
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
+            if (
+              id.includes('react') ||
+              id.includes('react-dom') ||
+              id.includes('scheduler') ||
+              id.includes('react-router')
+            ) {
+              return 'react-vendor';
+            }
             if (id.includes('@stripe')) {
               return 'stripe';
             }
             if (id.includes('framer-motion')) {
               return 'framer-motion';
-            }
-            if (id.includes('react-router')) {
-              return 'react-router';
-            }
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
             }
             if (id.includes('react-icons')) {
               return 'react-icons';
@@ -59,6 +47,4 @@ export default defineConfig({
     chunkSizeWarningLimit: 600
   },
   publicDir: 'public',
-  define: {
-  }
-})
+});

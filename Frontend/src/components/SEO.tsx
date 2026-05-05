@@ -13,34 +13,34 @@ interface SEOProps {
 const BASE_URL = 'https://domainedesrevesbleus.eu';
 
 const defaultSEO = {
-  title: 'Domaine des reves bleus - Toilettage Canin Professionnel | Salon de Toilettage pour Chiens',
-  description: 'Domaine des reves bleus - Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens. Prestations de qualité à Paris et région parisienne.',
-  keywords: 'domaine des reves bleus, toilettage chien, salon toilettage, toilettage canin, soin chien, produits chien, accessoires chien, Paris',
+  title: 'Laurence Melozay - Domaine des reves bleus | Toilettage Canin Professionnel Paris',
+  description: 'Laurence Melozay, toiletteuse professionnelle spécialisée en épilation cocker depuis 2017. Domaine des reves bleus - Salon de toilettage canin professionnel à Paris. Services de toilettage, produits de soin et accessoires pour chiens.',
+  keywords: 'Laurence Melozay, Domaine des reves bleus, domaine des rêves bleus, toilettage chien Paris, salon toilettage canin, toiletteuse professionnelle, épilation cocker, toilettage spécialisé cocker, toilettage canin professionnel, Paris',
   ogImage: `${BASE_URL}/images/groomer.jpg`,
 };
 
 const routeSEO: Record<string, Partial<SEOProps>> = {
   '/': {
-    title: 'Domaine des reves bleus - Toilettage Canin Professionnel | Salon de Toilettage pour Chiens',
-    description: 'Domaine des reves bleus - Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens. Prestations de qualité à Paris et région parisienne.',
-    keywords: 'domaine des reves bleus, toilettage chien, salon toilettage, toilettage canin, soin chien, produits chien, accessoires chien, Paris',
+    title: 'Laurence Melozay - Domaine des reves bleus | Toilettage Canin Professionnel Paris',
+    description: 'Laurence Melozay, toiletteuse professionnelle spécialisée en épilation cocker depuis 2017. Domaine des reves bleus - Salon de toilettage canin professionnel à Paris. Services de toilettage, produits de soin et accessoires pour chiens. BAC PRO élevage canins et félins 2016, Éducateur canin BP 2018.',
+    keywords: 'Laurence Melozay, Domaine des reves bleus, domaine des rêves bleus, toilettage chien Paris, salon toilettage canin, toiletteuse professionnelle, épilation cocker, toilettage spécialisé cocker, toilettage canin professionnel, Paris, BAC PRO élevage canins félins, éducateur canin',
   },
   '/products': {
-    title: 'Produits de Toilettage Canin - Domaine des reves bleus',
-    description: 'Découvrez notre sélection de produits de toilettage professionnel pour chiens. Shampoings, après-shampoings, accessoires et soins de qualité pour votre compagnon.',
-    keywords: 'produits toilettage chien, shampoing chien, accessoires chien, soin chien, produits professionnels',
+    title: 'Produits de Toilettage Canin - Laurence Melozay | Domaine des reves bleus',
+    description: 'Découvrez la sélection de produits de toilettage professionnel pour chiens de Laurence Melozay au Domaine des reves bleus. Shampoings, après-shampoings, accessoires et soins de qualité pour votre compagnon.',
+    keywords: 'produits toilettage chien, shampoing chien, accessoires chien, soin chien, produits professionnels, Laurence Melozay, Domaine des reves bleus',
   },
   '/services': {
-    title: 'Services de Toilettage Canin - Domaine des reves bleus',
-    description: 'Services de toilettage professionnel pour chiens. Toilettage complet, coupe, bain, soins des ongles et des oreilles. Prestations sur rendez-vous.',
-    keywords: 'service toilettage chien, salon toilettage, coupe chien, bain chien, soins chien',
+    title: 'Services de Toilettage Canin - Laurence Melozay | Domaine des reves bleus',
+    description: 'Services de toilettage professionnel pour chiens par Laurence Melozay au Domaine des reves bleus. Toilettage complet, coupe, bain, soins des ongles et des oreilles. Spécialisée en épilation cocker depuis 2017. Prestations sur rendez-vous à Paris.',
+    keywords: 'service toilettage chien, salon toilettage, coupe chien, bain chien, soins chien, Laurence Melozay, Domaine des reves bleus, épilation cocker, toilettage spécialisé cocker',
   },
   '/contact': {
-    title: 'Contact - Domaine des reves bleus | Salon de Toilettage Canin',
-    description: 'Contactez Domaine des reves bleus pour prendre rendez-vous pour le toilettage de votre chien. Salon professionnel à Paris et région parisienne.',
-    keywords: 'contact toilettage chien, rendez-vous toilettage, salon chien Paris',
+    title: 'Contact - Laurence Melozay | Domaine des reves bleus | Salon de Toilettage Canin Paris',
+    description: 'Contactez Laurence Melozay au Domaine des reves bleus pour prendre rendez-vous pour le toilettage de votre chien. Salon professionnel de toilettage canin à Paris et région parisienne.',
+    keywords: 'contact toilettage chien, rendez-vous toilettage, salon chien Paris, Laurence Melozay, Domaine des reves bleus, contact toiletteuse professionnelle',
   },
-  '/metion-legale': {
+  '/mentions-legales': {
     title: 'Mentions Légales - Domaine des reves bleus',
     description: 'Mentions légales du site Domaine des reves bleus, salon de toilettage professionnel pour chiens.',
     keywords: 'mentions légales, Domaine des reves bleus',
@@ -140,7 +140,7 @@ function SEO({ title, description, keywords, canonical, ogImage, noindex }: SEOP
     updateMetaTag('og:description', finalDescription, true);
     updateMetaTag('og:image', finalOgImage, true);
     updateMetaTag('og:locale', 'fr_FR', true);
-    updateMetaTag('og:site_name', 'Domaine des reves bleus', true);
+    updateMetaTag('og:site_name', 'Domaine des reves bleus - Laurence Melozay', true);
 
     updateMetaTag('twitter:card', 'summary_large_image');
     updateMetaTag('twitter:url', finalCanonical);

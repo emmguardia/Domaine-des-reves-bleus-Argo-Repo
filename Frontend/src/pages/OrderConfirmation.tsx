@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaCheckCircle, FaTimesCircle, FaSpinner } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
+import { getApiUrl, secureStorage } from '../utils/security';
 const OrderConfirmation: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<string | null>(null);
@@ -56,6 +57,22 @@ const OrderConfirmation: React.FC = () => {
               case 'succeeded':
                 setMessage('Votre paiement a été confirmé avec succès !');
                 clearCart();
+                // Créer la commande en DB (ne bloque pas l'affichage)
+                (async () => {
+                  try {
+                    const token = secureStorage.getItem('token');
+                    await fetch(`${getApiUrl()}/api/payment/create-order`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                      },
+                      body: JSON.stringify({ paymentIntentId })
+                    });
+                  } catch {
+                    // Silencieux côté client — le webhook est en backup
+                  }
+                })();
                 break;
               case 'processing':
                 setMessage('Votre paiement est toujours en cours de traitement. Rechargez la page plus tard ou vérifiez vos emails.');

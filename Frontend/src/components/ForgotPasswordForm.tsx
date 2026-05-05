@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
-import { sendForgotPasswordEmail } from '../services/emailService';
+import { getApiUrl } from '../utils/security';
 import { logger } from '../utils/logger';
 interface ForgotPasswordFormProps {
   onBack: () => void;
@@ -15,17 +15,23 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBack }) => {
     setIsLoading(true);
     setMessage('');
     try {
-      const result = await sendForgotPasswordEmail({
-        to_email: email,
-        to_name: email.split('@')[0], 
-        reset_link: '', 
+      const API_URL = getApiUrl();
+      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
       });
+
+      const result = await response.json();
+      
       if (result.success) {
         setIsSuccess(true);
-        setMessage(result.message);
+        setMessage(result.message || 'Un email de réinitialisation a été envoyé à votre adresse email.');
       } else {
         setIsSuccess(false);
-        setMessage(result.message);
+        setMessage(result.message || result.detail || 'Erreur lors de la demande de réinitialisation.');
       }
     } catch (error) {
       logger.error('Erreur:', error);

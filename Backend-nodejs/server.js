@@ -1,0 +1,557 @@
+import express from 'express';
+import cors from 'cors';
+import compression from 'compression';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import Stripe from 'stripe';
+import { query, transaction } from './config/database.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import {
+  helmetConfig,
+  hppConfig,
+  sanitizeConfig,
+  validateOrigin,
+  publicRateLimiter,
+  apiRateLimiter
+} from './config/security.js';
+import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from './utils/email.js';
+
+dotenv.config();
+
+console.log('🚀 [SERVER] Démarrage du serveur...');
+console.log('📦 [SERVER] Node.js version:', process.version);
+console.log('🌍 [SERVER] Environnement:', process.env.NODE_ENV || 'development');
+
+const app = express();
+const PORT = process.env.PORT || 8000;
+
+app.set('trust proxy', 1);
+
+console.log('⚙️  [SERVER] Configuration du serveur sur le port', PORT);
+
+let stripe = null;
+const getStripe = () => {
+  if (!stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY n\'est pas défini');
+    }
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-12-18.acacia'
+    });
+    console.log('✅ [SERVER] Stripe initialisé');
+  }
+  return stripe;
+};
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn('⚠️  [SERVER] STRIPE_SECRET_KEY n\'est pas défini - les webhooks Stripe ne fonctionneront pas');
+}
+
+app.use(helmetConfig);
+app.use(hppConfig);
+app.use(sanitizeConfig);
+app.use(validateOrigin);
+app.use(compression());
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buf) => {
+    // Stripe webhook signature validation needs the raw request body bytes.
+    if (req.originalUrl === '/api/webhook') {
+      req.rawBody = buf;
+    }
+  }
+}));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Fichiers uploadés (images produits admin) — chemin sécurisé, pas d'exécution
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '1d',
+  setHeaders: (res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  },
+}));
+
+app.get('/api', (req, res) => {
+  res.json({ message: 'Backend Les Rêves Bleus est en ligne !' });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString() 
+  });
+});
+
+app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    console.warn('⚠️  [WEBHOOK] STRIPE_WEBHOOK_SECRET n\'est pas défini');
+    return res.status(500).json({ error: 'Configuration manquante' });
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.warn('⚠️  [WEBHOOK] STRIPE_SECRET_KEY n\'est pas défini');
+    return res.status(500).json({ error: 'Configuration Stripe manquante' });
+  }
+
+  let event;
+
+  try {
+    const stripeInstance = getStripe();
+    const payload = req.rawBody || req.body;
+    event = stripeInstance.webhooks.constructEvent(payload, sig, webhookSecret);
+  } catch (err) {
+    console.error(`❌ [WEBHOOK] Signature invalide: ${err.message}`);
+    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+
+  console.log(`✅ [WEBHOOK] Événement reçu: type=${event.type}, id=${event.id}`);
+
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
+    const paymentIntentId = paymentIntent.id;
+    const userId = paymentIntent.metadata?.userId;
+
+    console.log(`🎯 [WEBHOOK] payment_intent.succeeded pi=${paymentIntentId}, userId=${userId || 'MANQUANT'}, amount=${paymentIntent.amount}`);
+
+    try {
+      const existingOrders = await query(
+        'SELECT id FROM orders WHERE payment_intent_id = ?',
+        [paymentIntentId]
+      );
+
+      if (existingOrders && existingOrders.length > 0) {
+        console.log(`⚠️  [WEBHOOK] Commande déjà existante, skip pi=${paymentIntentId}, orderId=${existingOrders[0].id}`);
+        return res.json({ received: true });
+      }
+
+      if (!userId) {
+        console.error(`❌ [WEBHOOK] userId manquant dans metadata pi=${paymentIntentId}`);
+        return res.json({ received: true });
+      }
+
+      const carts = await query(
+        'SELECT id FROM carts WHERE user_id = ?',
+        [parseInt(userId)]
+      );
+
+      if (!carts || carts.length === 0) {
+        console.error(`❌ [WEBHOOK] Panier introuvable userId=${userId}, pi=${paymentIntentId}`);
+        return res.json({ received: true });
+      }
+
+      const cart = carts[0];
+      console.log(`🛒 [WEBHOOK] Panier trouvé userId=${userId}, cartId=${cart.id}`);
+
+      const cartItems = await query(
+        `SELECT item_id, name, price, quantity, image, volume, fragrance, weight_grams
+         FROM cart_items
+         WHERE cart_id = ?`,
+        [cart.id]
+      );
+
+      if (!cartItems || cartItems.length === 0) {
+        console.error(`❌ [WEBHOOK] Panier vide userId=${userId}, cartId=${cart.id}, pi=${paymentIntentId}`);
+        return res.json({ received: true });
+      }
+
+      console.log(`🛒 [WEBHOOK] ${cartItems.length} article(s) dans le panier userId=${userId}`);
+
+      const totalAmount = paymentIntent.amount / 100;
+      const shippingCost = parseFloat(paymentIntent.metadata?.shippingCost || '0');
+      const pickupLocation = paymentIntent.metadata?.pickupLocation || null;
+
+      const shippingAddress = {
+        firstName: paymentIntent.metadata?.firstName || '',
+        lastName: paymentIntent.metadata?.lastName || '',
+        email: paymentIntent.metadata?.email || '',
+        phone: paymentIntent.metadata?.phone || '',
+        address: (pickupLocation === 'Arnas' || pickupLocation === 'Mezeria')
+          ? `Retrait sur place - ${pickupLocation}`
+          : (paymentIntent.metadata?.address || ''),
+        city: paymentIntent.metadata?.city || '',
+        postalCode: paymentIntent.metadata?.postalCode || '',
+        country: paymentIntent.metadata?.country || 'France',
+        pickupLocation: pickupLocation || undefined
+      };
+
+      console.log(`💾 [WEBHOOK] Création commande userId=${userId}, pi=${paymentIntentId}, total=${totalAmount}€, fraisPort=${shippingCost}€`);
+
+      let orderId;
+      await transaction(async (conn) => {
+        const orderResult = await conn.query(
+          `INSERT INTO orders (user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
+                              status, payment_status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'PAID', 'SUCCEEDED', NOW(), NOW())`,
+          [
+            parseInt(userId),
+            paymentIntentId,
+            totalAmount,
+            shippingCost,
+            JSON.stringify(shippingAddress)
+          ]
+        );
+
+        orderId = orderResult.insertId;
+        console.log(`✅ [WEBHOOK] Commande insérée orderId=${orderId}, userId=${userId}`);
+
+        for (const item of cartItems) {
+          await conn.query(
+            `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
+             VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              orderId,
+              item.name,
+              item.price,
+              item.quantity,
+              item.image,
+              item.volume || null,
+              item.fragrance || null,
+              item.weight_grams || 100
+            ]
+          );
+        }
+
+        console.log(`✅ [WEBHOOK] ${cartItems.length} order_items insérés orderId=${orderId}`);
+        await conn.query('DELETE FROM cart_items WHERE cart_id = ?', [cart.id]);
+        console.log(`🗑️  [WEBHOOK] Panier vidé cartId=${cart.id}`);
+      });
+
+      const users = await query(
+        'SELECT first_name, last_name, email, phone FROM users WHERE id = ?',
+        [parseInt(userId)]
+      );
+
+      if (users && users.length > 0) {
+        const user = users[0];
+        console.log(`📧 [WEBHOOK] Envoi emails de confirmation userId=${userId}, email=${user.email}`);
+
+        await sendOrderConfirmationEmail(user.email, {
+          firstName: user.first_name,
+          lastName: user.last_name,
+          orderNumber: paymentIntentId,
+          orderDate: new Date().toISOString(),
+          items: cartItems.map(item => ({
+            name: item.name,
+            price: parseFloat(item.price),
+            quantity: item.quantity,
+            image: item.image
+          })),
+          totalAmount,
+          shippingCost,
+          shippingAddress
+        });
+
+        await sendNewOrderNotificationEmail({
+          orderNumber: paymentIntentId,
+          customerName: `${user.first_name} ${user.last_name}`,
+          customerEmail: user.email,
+          customerPhone: user.phone,
+          items: cartItems.map(item => ({
+            name: item.name,
+            price: parseFloat(item.price),
+            quantity: item.quantity
+          })),
+          totalAmount,
+          shippingCost,
+          shippingAddress,
+          paymentMethod: 'Stripe'
+        });
+
+        console.log(`✅ [WEBHOOK] Emails envoyés userId=${userId}, orderId=${orderId}`);
+      } else {
+        console.warn(`⚠️  [WEBHOOK] Utilisateur introuvable pour email userId=${userId}, orderId=${orderId}`);
+      }
+
+      console.log(`🎉 [WEBHOOK] Commande traitée avec succès orderId=${orderId}, pi=${paymentIntentId}`);
+    } catch (error) {
+      console.error(`❌ [WEBHOOK] Erreur traitement payment_intent.succeeded pi=${paymentIntentId}:`, error);
+    }
+  }
+
+  if (event.type === 'payment_intent.payment_failed') {
+    const paymentIntent = event.data.object;
+    const paymentIntentId = paymentIntent.id;
+    const userId = paymentIntent.metadata?.userId;
+
+    console.log(`❌ [WEBHOOK] payment_intent.payment_failed pi=${paymentIntentId}, userId=${userId || 'MANQUANT'}`);
+
+    try {
+      const existingOrders = await query(
+        'SELECT id FROM orders WHERE payment_intent_id = ?',
+        [paymentIntentId]
+      );
+
+      if (!existingOrders || existingOrders.length === 0) {
+        const shippingCost = parseFloat(paymentIntent.metadata?.shippingCost || '0');
+        const pickupLocation = paymentIntent.metadata?.pickupLocation || null;
+        const shippingAddress = {
+          firstName: paymentIntent.metadata?.firstName || '',
+          lastName: paymentIntent.metadata?.lastName || '',
+          email: paymentIntent.metadata?.email || '',
+          phone: paymentIntent.metadata?.phone || '',
+          address: (pickupLocation === 'Arnas' || pickupLocation === 'Mezeria')
+            ? `Retrait sur place - ${pickupLocation}`
+            : (paymentIntent.metadata?.address || ''),
+          city: paymentIntent.metadata?.city || '',
+          postalCode: paymentIntent.metadata?.postalCode || '',
+          country: paymentIntent.metadata?.country || 'France',
+          pickupLocation: pickupLocation || undefined
+        };
+
+        const totalAmount = paymentIntent.amount / 100;
+        await query(
+          `INSERT INTO orders (user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
+                               status, payment_status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'CANCELLED', 'FAILED', NOW(), NOW())`,
+          [
+            userId ? parseInt(userId) : null,
+            paymentIntentId,
+            totalAmount,
+            shippingCost,
+            JSON.stringify(shippingAddress)
+          ]
+        );
+        console.log(`💾 [WEBHOOK] Commande échouée enregistrée pi=${paymentIntentId}`);
+      }
+    } catch (error) {
+      console.error(`❌ [WEBHOOK] Erreur traitement payment_failed pi=${paymentIntentId}:`, error);
+    }
+  }
+
+  res.json({ received: true });
+});
+
+import authRouter from './routes/auth.js';
+import productsRouter from './routes/products.js';
+import cartRouter from './routes/cart.js';
+import userRouter from './routes/user.js';
+import addressesRouter from './routes/addresses.js';
+import paymentRouter from './routes/payment.js';
+import adminRouter from './routes/admin.js';
+import emailRouter from './routes/email.js';
+
+app.get('/api/services', publicRateLimiter, async (req, res) => {
+  try {
+    const services = await query(
+      'SELECT id, name, description, price, duration, details FROM services ORDER BY sort_order ASC, id ASC'
+    );
+    res.json((services || []).map(s => ({
+      id: s.id,
+      name: s.name,
+      description: s.description || '',
+      price: s.price || '',
+      duration: s.duration || '',
+      details: typeof s.details === 'string' ? JSON.parse(s.details || '[]') : (s.details || [])
+    })));
+  } catch (err) {
+    console.error('Erreur GET /api/services:', err);
+    res.json([]);
+  }
+});
+
+app.use('/api/auth', publicRateLimiter, authRouter);
+app.use('/api/products', productsRouter);
+app.use('/api/cart', apiRateLimiter, cartRouter);
+app.use('/api/user', apiRateLimiter, userRouter);
+app.use('/api/addresses', apiRateLimiter, addressesRouter);
+app.use('/api/payment', apiRateLimiter, paymentRouter);
+app.use('/api/admin', apiRateLimiter, adminRouter);
+app.use('/api/email', emailRouter);
+
+app.get('/api/get-payment-status', publicRateLimiter, async (req, res) => {
+  try {
+    const { payment_intent } = req.query;
+
+    if (!payment_intent || !payment_intent.startsWith('pi_')) {
+      return res.status(400).json({
+        error: 'Erreur',
+        detail: 'Format de payment_intent invalide'
+      });
+    }
+
+    try {
+      const paymentIntent = await getStripe().paymentIntents.retrieve(payment_intent);
+      res.json({ status: paymentIntent.status });
+    } catch (stripeError) {
+      console.error('Erreur Stripe:', stripeError);
+      return res.status(500).json({
+        error: 'Erreur serveur',
+        detail: stripeError.message
+      });
+    }
+  } catch (error) {
+    console.error('Erreur lors de la récupération du statut:', error);
+    res.status(500).json({
+      error: 'Erreur serveur',
+      detail: 'Erreur lors de la récupération du statut'
+    });
+  }
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const today = new Date().toISOString().split('T')[0] + 'T10:00:00+00:00';
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <url>
+    <loc>https://domainedesrevesbleus.eu/</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/products</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/services</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/contact</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/metion-legale</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/cgv</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://domainedesrevesbleus.eu/politique-de-confidentialite</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>`;
+
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(sitemap);
+});
+
+app.get('/robots.txt', (req, res) => {
+  const robots = `User-agent: *
+Allow: /
+Allow: /products
+Allow: /services
+Allow: /contact
+Allow: /metion-legale
+Allow: /cgv
+Allow: /politique-de-confidentialite
+Allow: /login
+Allow: /sitemap.xml
+Allow: /robots.txt
+
+Disallow: /register
+Disallow: /reset-password
+Disallow: /profile
+Disallow: /checkout
+Disallow: /order-confirmation
+Disallow: /admin-panel
+Disallow: /admin-panel/
+Disallow: /api/
+
+Sitemap: https://domainedesrevesbleus.eu/sitemap.xml
+`;
+
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(robots);
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    detail: 'La ressource demandée n\'existe pas'
+  });
+});
+
+app.use((err, req, res, next) => {
+  const clientIP = req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+  
+  console.error('❌ [ERROR]', req.method, req.path, '-', err.message);
+  console.error('❌ [ERROR] IP:', clientIP);
+  console.error('❌ [ERROR] User-Agent:', req.headers['user-agent']);
+  
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('❌ [ERROR] Stack:', err.stack);
+  }
+  
+  const errorMessage = process.env.NODE_ENV === 'production' 
+    ? 'Une erreur est survenue' 
+    : err.message;
+  
+  const isDatabaseError = err.message?.includes('SQL') || 
+                          err.message?.includes('database') ||
+                          err.message?.includes('connection');
+  
+  res.status(err.status || 500).json({
+    error: 'Erreur serveur',
+    detail: isDatabaseError && process.env.NODE_ENV === 'production'
+      ? 'Une erreur est survenue'
+      : errorMessage
+  });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('🚀 [SERVER] Serveur démarré avec succès!');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log(`📡 [SERVER] Port: ${PORT}`);
+  console.log(`🌍 [SERVER] Environnement: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 [SERVER] API disponible sur http://0.0.0.0:${PORT}/api`);
+  console.log(`🏥 [SERVER] Health check: http://0.0.0.0:${PORT}/api/health`);
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('');
+  
+  if (process.env.MARIADB_HOST && process.env.MARIADB_PASSWORD) {
+    query('SELECT 1').then(() => {
+      console.log('✅ [STARTUP] Connexion à la base de données: OK');
+    }).catch((error) => {
+      console.error('❌ [STARTUP] Connexion à la base de données: ÉCHEC -', error.message);
+      console.warn('⚠️  [STARTUP] Le serveur continue mais les routes nécessitant la DB ne fonctionneront pas');
+    });
+  } else {
+    console.warn('⚠️  [STARTUP] Base de données non configurée (MARIADB_HOST ou MARIADB_PASSWORD manquant)');
+    console.warn('⚠️  [STARTUP] Mode développement - le serveur démarre sans DB');
+  }
+});
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM reçu, arrêt du serveur...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT reçu, arrêt du serveur...');
+  process.exit(0);
+});
+
+export default app;

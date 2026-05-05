@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { getApiUrl } from '../../utils/security';
-import { secureStorage } from '../../utils/security';
+import { getApiUrl, adminFetch } from '../../utils/security';
 import { logger } from '../../utils/logger';
 interface OrderItem {
   name: string;
@@ -11,10 +10,14 @@ interface OrderItem {
 }
 interface Order {
   _id: string;
-  paymentIntentId: string;
-  items: OrderItem[];
-  totalAmount: number;
-  shippingCost: number;
+  id?: string | number;
+  paymentIntentId?: string;
+  payment_intent_id?: string;
+  items?: OrderItem[];
+  totalAmount?: number;
+  total_amount?: number;
+  shippingCost?: number;
+  shipping_cost?: number;
   shippingAddress: {
     firstName: string;
     lastName: string;
@@ -25,9 +28,12 @@ interface Order {
     postalCode?: string;
   };
   status: string;
-  paymentStatus: string;
-  createdAt: string;
+  paymentStatus?: string;
+  payment_status?: string;
+  createdAt?: string;
+  created_at?: string;
   shippedAt?: string;
+  shipped_at?: string;
   user?: {
     firstName: string;
     lastName: string;
@@ -35,6 +41,14 @@ interface Order {
   };
 }
 function AdminOrderHistory() {
+  const getOrderId = (order: Order) => String(order._id || order.id || '');
+  const getPaymentIntentId = (order: Order) => String(order.paymentIntentId || order.payment_intent_id || '');
+  const getCreatedAt = (order: Order) => order.createdAt || order.created_at || new Date().toISOString();
+  const getShippedAt = (order: Order) => order.shippedAt || order.shipped_at;
+  const getItems = (order: Order) => Array.isArray(order.items) ? order.items : [];
+  const getTotalAmount = (order: Order) => Number(order.totalAmount ?? order.total_amount ?? 0);
+  const getShippingCost = (order: Order) => Number(order.shippingCost ?? order.shipping_cost ?? 0);
+  const getPaymentStatus = (order: Order) => String(order.paymentStatus || order.payment_status || '').toLowerCase();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const API_URL = getApiUrl();
@@ -43,12 +57,7 @@ function AdminOrderHistory() {
   }, []);
   const fetchHistory = async () => {
     try {
-      const token = secureStorage.getItem('adminToken');
-      const response = await fetch(`${API_URL}/api/admin/orders/history/all`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await adminFetch(`${API_URL}/api/admin/orders`);
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -120,7 +129,7 @@ function AdminOrderHistory() {
       <div className="space-y-4">
         {orders.map((order) => (
           <motion.div
-            key={order._id}
+            key={getOrderId(order)}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-xl shadow-lg p-6"
@@ -128,10 +137,10 @@ function AdminOrderHistory() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Commande #{order.paymentIntentId.slice(-8)}
+                  Commande #{(getPaymentIntentId(order) || 'N/A').slice(-8)}
                 </h3>
                 <p className="text-sm text-gray-600">
-                  {new Date(order.createdAt).toLocaleDateString('fr-FR', {
+                  {new Date(getCreatedAt(order)).toLocaleDateString('fr-FR', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -139,9 +148,9 @@ function AdminOrderHistory() {
                     minute: '2-digit',
                   })}
                 </p>
-                {order.shippedAt && (
+                {getShippedAt(order) && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Envoyée le {new Date(order.shippedAt).toLocaleDateString('fr-FR')}
+                    Envoyée le {new Date(getShippedAt(order) as string).toLocaleDateString('fr-FR')}
                   </p>
                 )}
               </div>
@@ -153,7 +162,7 @@ function AdminOrderHistory() {
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Articles</h4>
                 <div className="space-y-2">
-                  {order.items.map((item, index) => (
+                  {getItems(order).map((item, index) => (
                     <div key={index} className="flex items-center space-x-3">
                       <img
                         src={item.image}
@@ -177,14 +186,14 @@ function AdminOrderHistory() {
                 <h4 className="font-medium text-gray-900 mb-2">Livraison</h4>
                 <div className="text-sm text-gray-600 space-y-1">
                   <p>
-                    <strong>{order.shippingAddress.firstName} {order.shippingAddress.lastName}</strong>
+                    <strong>{order.shippingAddress?.firstName} {order.shippingAddress?.lastName}</strong>
                   </p>
-                  <p>{order.shippingAddress.address}</p>
-                  {order.shippingAddress.city && (
-                    <p>{order.shippingAddress.postalCode} {order.shippingAddress.city}</p>
+                  <p>{order.shippingAddress?.address}</p>
+                  {order.shippingAddress?.city && (
+                    <p>{order.shippingAddress?.postalCode} {order.shippingAddress?.city}</p>
                   )}
-                  <p>{order.shippingAddress.email}</p>
-                  <p>{order.shippingAddress.phone}</p>
+                  <p>{order.shippingAddress?.email}</p>
+                  <p>{order.shippingAddress?.phone}</p>
                 </div>
               </div>
             </div>
@@ -193,15 +202,15 @@ function AdminOrderHistory() {
                 <div>
                   <p className="text-sm text-gray-600">Total</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {(order.totalAmount + order.shippingCost).toFixed(2)} €
+                    {(getTotalAmount(order) + getShippingCost(order)).toFixed(2)} €
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Paiement</p>
                   <p className={`text-sm font-medium ${
-                    order.paymentStatus === 'succeeded' ? 'text-green-600' : 'text-red-600'
+                    getPaymentStatus(order) === 'succeeded' ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {order.paymentStatus === 'succeeded' ? 'Payé' : 'Échoué'}
+                    {getPaymentStatus(order) === 'succeeded' ? 'Payé' : 'Échoué'}
                   </p>
                 </div>
               </div>

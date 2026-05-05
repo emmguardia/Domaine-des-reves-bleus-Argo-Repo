@@ -6,34 +6,35 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test-css": "node test-css.js"
   },
   "dependencies": {
-    "@emailjs/browser": "^4.4.1",
-    "@stripe/react-stripe-js": "^2.5.0",
-    "@stripe/stripe-js": "^2.4.0",
-    "axios": "^1.9.0",
-    "framer-motion": "^11.0.8",
-    "lucide-react": "^0.358.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@stripe/react-stripe-js": "^5.4.1",
+    "@stripe/stripe-js": "^8.6.4",
+    "axios": "^1.13.3",
+    "framer-motion": "^12.29.0",
+    "lucide-react": "^0.563.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-icons": "^5.0.1",
-    "react-router-dom": "^6.22.3"
+    "react-router-dom": "^7.13.0"
   },
   "devDependencies": {
-    "@types/react": "^18.2.64",
-    "@types/react-dom": "^18.2.21",
-    "@typescript-eslint/eslint-plugin": "^7.1.1",
-    "@typescript-eslint/parser": "^7.1.1",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
+    "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.18",
-    "eslint": "^8.57.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.4.35",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^4.1.18",
+    "@tailwindcss/postcss": "^4.1.18",
     "typescript": "^5.7.2",
-    "vite": "^6.3.5"
+    "vite": "^7.3.1"
   }
 }

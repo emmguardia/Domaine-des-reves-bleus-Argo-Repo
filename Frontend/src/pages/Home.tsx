@@ -8,9 +8,9 @@ function Home() {
   return (
     <main>
       <SEO 
-        title="Domaine des reves bleus - Toilettage Canin Professionnel | Salon de Toilettage pour Chiens"
-        description="Domaine des reves bleus - Salon de toilettage professionnel pour chiens. Services de toilettage, produits de soin et accessoires pour chiens. Prestations de qualité à Paris et région parisienne. Spécialiste du toilettage canin."
-        keywords="domaine des reves bleus, toilettage chien, salon toilettage, toilettage canin, soin chien, produits chien, accessoires chien, Paris, toilettage professionnel chien"
+        title="Laurence Melozay - Domaine des reves bleus | Toilettage Canin Professionnel Paris"
+        description="Laurence Melozay, toiletteuse professionnelle spécialisée en épilation cocker depuis 2017. Domaine des reves bleus - Salon de toilettage canin professionnel à Paris. Services de toilettage, produits de soin et accessoires pour chiens. BAC PRO élevage canins et félins 2016, Éducateur canin BP 2018."
+        keywords="Laurence Melozay, Domaine des reves bleus, domaine des rêves bleus, toilettage chien Paris, salon toilettage canin, toiletteuse professionnelle, épilation cocker, toilettage spécialisé cocker, toilettage canin professionnel, Paris, BAC PRO élevage canins félins, éducateur canin"
       />
       <section className="hero-section min-h-screen flex items-center justify-center text-white">
         <div className="container mx-auto px-4 sm:px-6 text-center relative z-10 pt-24 sm:pt-32">
@@ -19,9 +19,9 @@ function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight px-4">
-              Le Domaine des Rêves Bleus
-            </h2>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 leading-tight px-4">
+              Le Domaine des Rêves Bleus <br /> Laurence Melozay
+            </h1>
             <p className="text-base sm:text-lg md:text-xl text-gray-100 mb-8 sm:mb-12 max-w-2xl mx-auto font-light px-4">
               Un poil bien hydraté est un poil à moitié démêlé
             </p>
@@ -84,7 +84,7 @@ function Home() {
               >
                 <img 
                   src="/images/dog-grooming-1.jpg" 
-                  alt="Toilettage professionnel" 
+                  alt="Toilettage professionnel chien par Laurence Melozay - Domaine des reves bleus" 
                   className="w-full h-full object-cover"
                 />
               </motion.div>
@@ -94,7 +94,7 @@ function Home() {
               >
                 <img 
                   src="/images/dog-grooming-2.jpg" 
-                  alt="Soin du pelage" 
+                  alt="Soin du pelage chien par Laurence Melozay - Domaine des reves bleus" 
                   className="w-full h-full object-cover"
                 />
               </motion.div>
@@ -142,16 +142,16 @@ function Home() {
                 <div className="md:w-1/3">
                   <img 
                     src="/images/groomer.jpg" 
-                    alt="Notre experte toiletteuse" 
+                    alt="Laurence Melozay - Toiletteuse professionnelle spécialisée en épilation cocker - Domaine des reves bleus" 
                     className="rounded-full w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 object-cover border-4 border-primary/20"
                   />
                 </div>
                 <div className="md:w-2/3 space-y-3 sm:space-y-4 text-center md:text-left">
-                  <h3 className="text-xl sm:text-2xl font-bold text-gray-800">
-                    Laurence
-                  </h3>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+                    Laurence Melozay
+                  </h2>
                   <p className="text-gray-600 italic text-sm sm:text-base">
-                    "Je m'appelle Laurence, toiletteuse spécialisée en épilation depuis 2017. 
+                    "Je m'appelle Laurence Melozay, toiletteuse professionnelle spécialisée en épilation depuis 2017. 
                   Après avoir obtenu mon BAC PRO élevage canins et félins en 2016, puis mon brevet professionnel d'état d'éducateur en 2018, 
                   je me suis spécialisée dans le toilettage et l'épilation des cockers anglais. 
                   Chaque année, je me perfectionne auprès des meilleurs professionnels du monde du toilettage pour toujours offrir 

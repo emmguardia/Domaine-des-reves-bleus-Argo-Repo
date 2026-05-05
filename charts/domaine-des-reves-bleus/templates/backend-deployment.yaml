@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: domaine-des-reves-bleus-backend
+  namespace: {{ include "drb.namespace" . }}
+  labels:
+    {{- include "drb.labels" . | nindent 4 }}
+    {{- include "drb.backend.selectorLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.backend.strategy.rollingUpdate.maxSurge | default 1 }}
+      maxUnavailable: {{ .Values.backend.strategy.rollingUpdate.maxUnavailable | default 0 }}
+  selector:
+    matchLabels:
+      {{- include "drb.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "drb.backend.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: backend
+          image: {{ .Values.backend.image }}
+          imagePullPolicy: {{ .Values.backend.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: {{ .Values.backend.port }}
+          workingDir: /app
+          env:
+            - name: NODE_ENV
+              value: {{ .Values.backend.env.NODE_ENV | quote }}
+            - name: PORT
+              value: {{ .Values.backend.env.PORT | quote }}
+            - name: MARIADB_PORT
+              value: {{ .Values.backend.env.MARIADB_PORT | quote }}
+            - name: JWT_PRIVATE_KEY_PATH
+              value: {{ .Values.backend.env.JWT_PRIVATE_KEY_PATH | quote }}
+            - name: EMAIL_SERVICE_URL
+              value: {{ .Values.backend.env.EMAIL_SERVICE_URL | quote }}
+            {{- if .Values.backend.env.FRONTEND_URL }}
+            - name: FRONTEND_URL
+              value: {{ .Values.backend.env.FRONTEND_URL | quote }}
+            {{- end }}
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: stripe-secret-key
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: stripe-webhook-secret
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: jwt-secret
+            - name: MARIADB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: mariadb-host
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: mariadb-user
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: mariadb-password
+            - name: MARIADB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: mariadb-database
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+              readOnly: false
+            - name: secrets
+              mountPath: /app/secrets
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.backend.port }}
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 6
+      volumes:
+        - name: uploads
+          emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: {{ .Values.secretName }}
+            items:
+              - key: jwt-private-key
+                path: jwt_private_key.pem
+              - key: jwt-public-key
+                path: jwt_public_key.pem

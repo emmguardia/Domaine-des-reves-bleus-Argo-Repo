@@ -20,13 +20,22 @@ const Cart: React.FC<CartProps> = ({ onClose }) => {
   const totalWeightGrams = cartItems.reduce((sum, item) => sum + (item.weightGrams ?? 100) * item.quantity, 0);
   const totalWeightKg = (totalWeightGrams / 1000);
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-[60]">
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60]"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.05)' }}
+        onClick={onClose}
+      />
       <motion.div
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
-        transition={{ type: 'tween' }}
-        className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl flex flex-col"
+        transition={{ type: 'tween', duration: 0.3 }}
+        className="fixed right-0 top-0 h-full w-full sm:w-96 md:w-[28rem] lg:w-[32rem] bg-white shadow-2xl flex flex-col z-[70]"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 flex-shrink-0 border-b">
           <div className="flex justify-between items-center">
@@ -155,7 +164,7 @@ const Cart: React.FC<CartProps> = ({ onClose }) => {
           </div>
         )}
       </motion.div>
-    </div>
+    </>
   );
 };
 export default Cart;
