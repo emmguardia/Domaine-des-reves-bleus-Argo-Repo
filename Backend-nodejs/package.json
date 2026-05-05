@@ -1,0 +1,36 @@
+{
+  "name": "domaine-des-reves-bleus-backend",
+  "version": "2.0.0",
+  "description": "Backend Node.js pour Domaine des Rêves Bleus - Migration depuis FastAPI",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "init-categories": "node scripts/init-categories.js",
+    "init-services": "node scripts/init-services.js"
+  },
+  "keywords": ["ecommerce", "api", "nodejs"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "mariadb": "^3.2.2",
+    "bcrypt": "^6.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "cors": "^2.8.5",
+    "express-validator": "^7.2.0",
+    "stripe": "^20.2.0",
+    "dotenv": "^17.2.3",
+    "multer": "^2.0.0",
+    "uuid": "^13.0.0",
+    "hpp": "^0.2.3",
+    "compression": "^1.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

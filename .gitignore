@@ -1,0 +1,38 @@
+# ── Secrets en clair (NE JAMAIS PUSHER) ──────────────────────────────────────
+charts/domaine-des-reves-bleus/secrets/drb-secrets.yaml
+sealed-secrets-public.pem
+
+# ── K3s raw YAMLs (remplacés par Helm charts — garder hors du repo public) ───
+K3s/secret.yaml
+K3s/Domaine-des-reves-bleus_BACK.yaml
+K3s/Domaine-des-reves-bleus_FRONT.yaml
+K3s/hpa.yaml
+
+# ── Node.js ───────────────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+Frontend/node_modules/
+Backend-nodejs/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Frontend build ────────────────────────────────────────────────────────────
+Frontend/dist/
+**/dist/
+Frontend/.env
+Frontend/.env.local
+Frontend/.env.*.local
+
+# ── Backend env ───────────────────────────────────────────────────────────────
+Backend-nodejs/.env
+Backend-nodejs/.env.local
+
+# ── OS / IDE ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+*.tar

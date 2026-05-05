@@ -1,0 +1,63 @@
+# values.yaml — Domaine des Rêves Bleus (prod)
+# Les images sont mises à jour automatiquement par la CI (build-and-push.yml)
+# Format : ghcr.io/<owner>/<nom>@sha256:<digest>  (piqué par la CI)
+
+namespace: domaine-des-reves-bleus
+
+# ── Secret Kubernetes (déployé via SealedSecret dans templates/) ──────────────
+secretName: domaine-des-reves-bleus-secrets
+
+# ── Backend (Node.js) ─────────────────────────────────────────────────────────
+backend:
+  image: ghcr.io/emmguardia/domaine-des-reves-bleus-back@sha256:placeholder
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  port: 8000
+  env:
+    NODE_ENV: production
+    PORT: "8000"
+    FRONTEND_URL: "https://domainedesrevesbleus.eu"
+    EMAIL_SERVICE_URL: "http://email-service.email-service.svc.cluster.local:8080"
+    MARIADB_PORT: "3306"
+    JWT_PRIVATE_KEY_PATH: "/app/secrets/jwt_private_key.pem"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    cpuTarget: 70
+    memoryTarget: 80
+
+# ── Frontend (nginx) ──────────────────────────────────────────────────────────
+frontend:
+  image: ghcr.io/emmguardia/domaine-des-reves-bleus-front@sha256:placeholder
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  port: 80
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 5
+    cpuTarget: 70
+    memoryTarget: 80
