@@ -75,6 +75,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateUserState(null);
     }
   }, []);
+
+  // Vérification périodique de l'expiration du token (toutes les 60s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const token = secureStorage.getItem('token');
+      if (token && isTokenExpired(token)) {
+        logger.log('Token expiré (vérification périodique), déconnexion automatique...');
+        updateUserState(null);
+      }
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []);
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
     logger.log('Tentative de connexion');
     try {

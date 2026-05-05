@@ -194,44 +194,53 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
       console.log(`💾 [WEBHOOK] Création commande userId=${userId}, pi=${paymentIntentId}, total=${totalAmount}€, fraisPort=${shippingCost}€`);
 
       let orderId;
-      await transaction(async (conn) => {
-        const orderResult = await conn.query(
-          `INSERT INTO orders (user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
-                              status, payment_status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 'PAID', 'SUCCEEDED', NOW(), NOW())`,
-          [
-            parseInt(userId),
-            paymentIntentId,
-            totalAmount,
-            shippingCost,
-            JSON.stringify(shippingAddress)
-          ]
-        );
-
-        orderId = orderResult.insertId;
-        console.log(`✅ [WEBHOOK] Commande insérée orderId=${orderId}, userId=${userId}`);
-
-        for (const item of cartItems) {
-          await conn.query(
-            `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
-             VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+      try {
+        await transaction(async (conn) => {
+          const orderResult = await conn.query(
+            `INSERT INTO orders (user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
+                                status, payment_status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 'paid', 'succeeded', NOW(), NOW())`,
             [
-              orderId,
-              item.name,
-              item.price,
-              item.quantity,
-              item.image,
-              item.volume || null,
-              item.fragrance || null,
-              item.weight_grams || 100
+              parseInt(userId),
+              paymentIntentId,
+              totalAmount,
+              shippingCost,
+              JSON.stringify(shippingAddress)
             ]
           );
-        }
 
-        console.log(`✅ [WEBHOOK] ${cartItems.length} order_items insérés orderId=${orderId}`);
-        await conn.query('DELETE FROM cart_items WHERE cart_id = ?', [cart.id]);
-        console.log(`🗑️  [WEBHOOK] Panier vidé cartId=${cart.id}`);
-      });
+          orderId = orderResult.insertId;
+          console.log(`✅ [WEBHOOK] Commande insérée orderId=${orderId}, userId=${userId}`);
+
+          for (const item of cartItems) {
+            await conn.query(
+              `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
+               VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                orderId,
+                item.name,
+                item.price,
+                item.quantity,
+                item.image,
+                item.volume || null,
+                item.fragrance || null,
+                item.weight_grams || 100
+              ]
+            );
+          }
+
+          console.log(`✅ [WEBHOOK] ${cartItems.length} order_items insérés orderId=${orderId}`);
+          await conn.query('DELETE FROM cart_items WHERE cart_id = ?', [cart.id]);
+          console.log(`🗑️  [WEBHOOK] Panier vidé cartId=${cart.id}`);
+        });
+      } catch (txError) {
+        // Doublon UNIQUE sur payment_intent_id : create-order a déjà traité ce paiement
+        if (txError.errno === 1062 || txError.code === 'ER_DUP_ENTRY') {
+          console.log(`⚠️  [WEBHOOK] Doublon ignoré (create-order plus rapide) pi=${paymentIntentId}`);
+          return res.json({ received: true }); // 200 → Stripe ne réessaie pas
+        }
+        throw txError; // Relancer pour le catch extérieur
+      }
 
       const users = await query(
         'SELECT first_name, last_name, email, phone FROM users WHERE id = ?',
@@ -319,7 +328,7 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
         await query(
           `INSERT INTO orders (user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
                                status, payment_status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 'CANCELLED', 'FAILED', NOW(), NOW())`,
+           VALUES (?, ?, ?, ?, ?, 'cancelled', 'failed', NOW(), NOW())`,
           [
             userId ? parseInt(userId) : null,
             paymentIntentId,

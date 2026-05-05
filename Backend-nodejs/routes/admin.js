@@ -537,14 +537,14 @@ router.get('/orders/:order_id', [
  */
 router.put('/orders/:order_id/status', [
   param('order_id').isInt({ min: 1 }),
-  body('status').isIn(['pending', 'preparing', 'shipped', 'delivered', 'cancelled']),
+  body('status').isIn(['paid', 'pending', 'preparing', 'shipped', 'delivered', 'cancelled']),
   handleValidationErrors
 ], async (req, res) => {
   try {
     const orderId = parseInt(req.params.order_id);
     const { status } = req.body;
 
-    const validStatuses = ['pending', 'preparing', 'shipped', 'delivered', 'cancelled'];
+    const validStatuses = ['paid', 'pending', 'preparing', 'shipped', 'delivered', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         error: 'Erreur',
