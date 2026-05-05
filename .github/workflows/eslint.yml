@@ -46,7 +46,8 @@ jobs:
 
       - name: Upload analysis results to GitHub
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        # Skip sur les PRs Dependabot — token restreint sans accès security-events
+        if: always() && github.actor != 'dependabot[bot]'
         with:
           sarif_file: ./Frontend/eslint-results.sarif
           wait-for-processing: true
