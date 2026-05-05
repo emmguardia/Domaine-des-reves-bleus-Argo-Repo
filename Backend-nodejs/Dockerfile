@@ -6,6 +6,9 @@ ENV npm_config_update_notifier=false \
     npm_config_fund=false \
     npm_config_audit=false
 
+# Mettre à jour npm pour patcher ses vulnérabilités bundlées (tar, glob, etc.)
+RUN npm install -g npm@latest
+
 # Copier les fichiers de dépendances
 COPY package*.json ./
 

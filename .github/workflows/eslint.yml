@@ -8,7 +8,7 @@ on:
 
 jobs:
   eslint:
-    name: Run eslint scanning
+    name: Run ESLint scanning
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: Frontend/package-lock.json
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
         working-directory: ./Frontend
 
       - name: Install SARIF Formatter
@@ -39,14 +39,14 @@ jobs:
           SARIF_ESLINT_IGNORE_SUPPRESSED: "true"
         run: |
           npx eslint . \
-          --ext .js,.jsx,.ts,.tsx \
-          --format @microsoft/eslint-formatter-sarif \
-          --output-file eslint-results.sarif
+            --ext .js,.jsx,.ts,.tsx \
+            --format @microsoft/eslint-formatter-sarif \
+            --output-file eslint-results.sarif || true
         working-directory: ./Frontend
-        continue-on-error: true
 
       - name: Upload analysis results to GitHub
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
         with:
           sarif_file: ./Frontend/eslint-results.sarif
           wait-for-processing: true
