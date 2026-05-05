@@ -152,7 +152,7 @@ jobs:
       # ── Backend ──────────────────────────────────────────────────────────────
       - name: Extract metadata (backend)
         id: meta-backend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/domaine-des-reves-bleus-back
           tags: |
@@ -187,7 +187,7 @@ jobs:
 
       - name: Extract metadata (frontend)
         id: meta-frontend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/domaine-des-reves-bleus-front
           tags: |
