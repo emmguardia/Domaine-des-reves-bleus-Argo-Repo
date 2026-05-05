@@ -54,6 +54,10 @@ spec:
             - name: FRONTEND_URL
               value: {{ .Values.backend.env.FRONTEND_URL | quote }}
             {{- end }}
+            {{- if .Values.backend.env.ADMIN_EMAIL }}
+            - name: ADMIN_EMAIL
+              value: {{ .Values.backend.env.ADMIN_EMAIL | quote }}
+            {{- end }}
             - name: STRIPE_SECRET_KEY
               valueFrom:
                 secretKeyRef:

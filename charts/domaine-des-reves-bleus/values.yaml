@@ -22,6 +22,7 @@ backend:
     PORT: "8000"
     FRONTEND_URL: "https://domainedesrevesbleus.eu"
     EMAIL_SERVICE_URL: "http://email-service.email-service.svc.cluster.local:8080"
+    ADMIN_EMAIL: "domainedesrevesbleus@gmail.com"
     MARIADB_PORT: "3306"
     JWT_PRIVATE_KEY_PATH: "/app/secrets/jwt_private_key.pem"
   resources:

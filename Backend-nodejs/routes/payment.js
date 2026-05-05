@@ -439,7 +439,7 @@ router.post('/create-order', async (req, res) => {
       const orderResult = await conn.query(
         `INSERT INTO orders (user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
                             status, payment_status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'PAID', 'SUCCEEDED', NOW(), NOW())`,
+         VALUES (?, ?, ?, ?, ?, 'paid', 'succeeded', NOW(), NOW())`,
         [userId, paymentIntentId, totalAmount, shippingCost, JSON.stringify(shippingAddress)]
       );
       orderId = orderResult.insertId;
@@ -495,6 +495,19 @@ router.post('/create-order', async (req, res) => {
 
     res.json({ success: true, orderId });
   } catch (error) {
+    // Doublon UNIQUE sur payment_intent_id : le webhook a déjà traité ce paiement
+    if (error.errno === 1062 || error.code === 'ER_DUP_ENTRY') {
+      console.log(`⚠️  [CREATE-ORDER] Doublon ignoré (webhook plus rapide) pi=${req.body?.paymentIntentId}`);
+      try {
+        const existing = await query(
+          'SELECT id FROM orders WHERE payment_intent_id = ?',
+          [req.body?.paymentIntentId]
+        );
+        if (existing && existing.length > 0) {
+          return res.json({ success: true, orderId: existing[0].id, alreadyExists: true });
+        }
+      } catch {}
+    }
     console.error('[CREATE-ORDER] Erreur:', error);
     res.status(500).json({ error: 'Erreur serveur', detail: error.message });
   }
