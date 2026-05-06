@@ -51,14 +51,23 @@ async function sendEmailToService(templateId, toEmail, toName, variables = {}, s
       console.log('📤 [EMAIL] Envoi à Email-Service:', JSON.stringify(requestBody, null, 2));
     }
     
-    const response = await fetch(`${EMAIL_SERVICE_URL}/api/v1/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Timeout de 5s pour ne pas bloquer le thread Node.js si l'email-service est down
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    let response;
+    try {
+      response = await fetch(`${EMAIL_SERVICE_URL}/api/v1/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));

@@ -22,10 +22,20 @@ spec:
       labels:
         {{- include "drb.frontend.selectorLabels" . | nindent 8 }}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101    # user nginx dans l'image officielle alpine
+        fsGroup: 101
       containers:
         - name: nginx
           image: {{ .Values.frontend.image }}
           imagePullPolicy: {{ .Values.frontend.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: {{ .Values.frontend.port }}
           resources:

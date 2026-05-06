@@ -64,7 +64,6 @@ jobs:
 
       - name: Backend – audit (high+)
         run: cd Backend-nodejs && npm audit --audit-level=high
-        continue-on-error: true  # informatif, ne bloque pas le build
 
       - name: Backend – test (if present)
         run: cd Backend-nodejs && npm test --if-present
@@ -81,7 +80,6 @@ jobs:
 
       - name: Frontend – audit (high+)
         run: cd Frontend && npm audit --audit-level=high
-        continue-on-error: true  # informatif, ne bloque pas le build
 
       - name: Frontend – lint
         run: cd Frontend && npm run lint -- --max-warnings 999

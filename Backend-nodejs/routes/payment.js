@@ -1,33 +1,16 @@
 import express from 'express';
-import Stripe from 'stripe';
 import { query, transaction } from '../config/database.js';
 import { verifyToken } from '../middleware/auth.js';
 import { validateCreatePaymentIntent } from '../middleware/validation.js';
 import { publicRateLimiter } from '../config/security.js';
 import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from '../utils/email.js';
+import { getStripe } from '../config/stripe.js';
 
 const router = express.Router();
 
 // Toutes les routes nécessitent une authentification
 router.use(verifyToken);
 router.use(publicRateLimiter);
-
-// Initialisation lazy de Stripe (seulement si la clé est disponible)
-let stripe = null;
-const getStripe = () => {
-  if (!stripe) {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      throw new Error('STRIPE_SECRET_KEY n\'est pas défini');
-    }
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-12-18.acacia' // Dernière version API Stripe
-    });
-  }
-  return stripe;
-};
-
-if (!process.env.STRIPE_SECRET_KEY) {
-}
 
 /**
  * POST /api/payment/create-payment-intent
@@ -63,19 +46,35 @@ router.post('/create-payment-intent', validateCreatePaymentIntent, async (req, r
       });
     }
 
+    // Récupérer les articles avec les vrais prix depuis la table products
     const cartItems = await query(
-      'SELECT COUNT(*) as count FROM cart_items WHERE cart_id = ?',
+      `SELECT ci.item_id, ci.quantity, COALESCE(p.price, ci.price) as unit_price
+       FROM cart_items ci
+       LEFT JOIN products p ON p.id = ci.item_id
+       WHERE ci.cart_id = ?`,
       [carts[0].id]
     );
 
-    if (!cartItems || cartItems.length === 0 || cartItems[0].count === 0) {
+    if (!cartItems || cartItems.length === 0) {
       console.warn(`[PAYMENT-INTENT] Panier vide userId=${userId}, cartId=${carts[0].id}`);
       return res.status(400).json({
         error: 'Erreur',
         detail: 'Panier vide'
       });
     }
-    console.log(`[PAYMENT-INTENT] Panier vérifié userId=${userId}, cartId=${carts[0].id}, items=${cartItems[0].count}`);
+
+    // Valider que le montant envoyé correspond au total réel en DB (anti-fraude)
+    const expectedSubtotalCents = cartItems.reduce((sum, item) =>
+      sum + Math.round(parseFloat(item.unit_price) * 100) * Number(item.quantity), 0);
+    const expectedTotalCents = expectedSubtotalCents + Math.round((shippingCost || 0) * 100);
+    if (Math.abs(amount - expectedTotalCents) > 1) {
+      console.warn(`[PAYMENT-INTENT] Montant frauduleux userId=${userId}, reçu=${amount}, attendu=${expectedTotalCents}`);
+      return res.status(400).json({
+        error: 'Erreur',
+        detail: 'Le montant ne correspond pas au contenu du panier'
+      });
+    }
+    console.log(`[PAYMENT-INTENT] Panier vérifié userId=${userId}, cartId=${carts[0].id}, items=${cartItems.length}, montant validé=${amount}cents`);
 
     const metadata = {
       userId: userId.toString()
@@ -404,9 +403,13 @@ router.post('/create-order', async (req, res) => {
       return res.status(400).json({ error: 'Panier introuvable' });
     }
 
+    // Récupérer les articles avec les vrais prix depuis la table products (anti-fraude)
     const cartItems = await query(
-      `SELECT item_id, name, price, quantity, image, volume, fragrance, weight_grams
-       FROM cart_items WHERE cart_id = ?`,
+      `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) as price,
+              ci.quantity, ci.image, ci.volume, ci.fragrance, ci.weight_grams
+       FROM cart_items ci
+       LEFT JOIN products p ON p.id = ci.item_id
+       WHERE ci.cart_id = ?`,
       [carts[0].id]
     );
     if (!cartItems || cartItems.length === 0) {

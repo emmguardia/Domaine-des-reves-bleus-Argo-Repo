@@ -1,0 +1,25 @@
+{{- /* PodDisruptionBudget — garantit la disponibilité lors des maintenances nœud */ -}}
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: domaine-des-reves-bleus-backend-pdb
+  namespace: {{ include "drb.namespace" . }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "drb.backend.selectorLabels" . | nindent 6 }}
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: domaine-des-reves-bleus-frontend-pdb
+  namespace: {{ include "drb.namespace" . }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "drb.frontend.selectorLabels" . | nindent 6 }}
