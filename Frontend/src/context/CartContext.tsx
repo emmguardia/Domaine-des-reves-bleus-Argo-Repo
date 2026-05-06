@@ -47,6 +47,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pickupLocation, setPickupLocation] = useState<'Arnas' | 'Mezeria' | null>(null);
   const { user, logout } = useAuth();
   const isUpdatingFromBackend = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
@@ -127,7 +128,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
   useEffect(() => {
     if (user && cartItems.length > 0 && !isUpdatingFromBackend.current) {
-      const saveCart = async () => {
+      // Debounce 500ms : évite les appels réseau en rafale lors de modifications rapides du panier
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(async () => {
         try {
           logger.log('Sauvegarde du panier sur le backend');
           const cleanItems = cartItems
@@ -174,11 +177,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.error('Détails de l\'erreur:', error.response?.data);
           }
         }
-      };
-      saveCart();
+      }, 500);
     } else if (isUpdatingFromBackend.current) {
       isUpdatingFromBackend.current = false;
     }
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [cartItems, user]);
   const addToCart = (item: CartItem) => {
     if (import.meta.env.DEV) {

@@ -1,0 +1,85 @@
+{{- /* NetworkPolicy — isole le namespace domaine-des-reves-bleus */ -}}
+
+# Frontend : accepte uniquement le trafic entrant depuis l'Ingress controller
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-ingress
+  namespace: {{ include "drb.namespace" . }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "drb.frontend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - {}  # Autorise tout ingress (Ingress controller géré au niveau cluster)
+
+# Backend : accepte uniquement le trafic depuis le frontend du même namespace
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-ingress
+  namespace: {{ include "drb.namespace" . }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "drb.backend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # Trafic depuis le frontend (même namespace)
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "drb.frontend.selectorLabels" . | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.port }}
+    # Trafic depuis ArgoCD (namespace argocd) pour les health checks
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: argocd
+      ports:
+        - protocol: TCP
+          port: {{ .Values.backend.port }}
+
+# Egress backend : autorise MariaDB externe, email-service, et Stripe HTTPS
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-egress
+  namespace: {{ include "drb.namespace" . }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "drb.backend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    # MariaDB externe (réseau local)
+    - ports:
+        - protocol: TCP
+          port: 3306
+    # Email-service (namespace email-service)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: email-service
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Stripe et autres APIs HTTPS externes
+    - ports:
+        - protocol: TCP
+          port: 443
+    # DNS cluster
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

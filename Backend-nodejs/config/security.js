@@ -86,7 +86,29 @@ export const hppConfig = hpp({
   whitelist: ['category', 'status', 'page', 'limit']
 });
 
+// Sanitisation des inputs : supprime les opérateurs NoSQL ($where, $gt…)
+// et tronque les strings trop longues. Les requêtes SQL sont déjà protégées
+// par parameterized queries, ce middleware couvre les injections NoSQL/prototype.
+const _sanitizeObj = (obj, depth = 0) => {
+  if (depth > 5 || !obj || typeof obj !== 'object') return;
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith('$') || key.includes('.')) {
+      delete obj[key];
+      continue;
+    }
+    const val = obj[key];
+    if (typeof val === 'string') {
+      if (val.length > 10000) obj[key] = val.substring(0, 10000);
+    } else if (val && typeof val === 'object') {
+      _sanitizeObj(val, depth + 1);
+    }
+  }
+};
+
 export const sanitizeConfig = (req, res, next) => {
+  if (req.body   && typeof req.body   === 'object') _sanitizeObj(req.body);
+  if (req.query  && typeof req.query  === 'object') _sanitizeObj(req.query);
+  if (req.params && typeof req.params === 'object') _sanitizeObj(req.params);
   next();
 };
 

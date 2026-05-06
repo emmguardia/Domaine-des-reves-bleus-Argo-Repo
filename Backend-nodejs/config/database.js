@@ -13,8 +13,8 @@ let pool = null;
 try {
   pool = mariadb.createPool({
     host: process.env.MARIADB_HOST || 'localhost',
-    user: process.env.MARIADB_USER || 'root',
-    password: process.env.MARIADB_PASSWORD || '',
+    user: process.env.MARIADB_USER,           // Pas de fallback root
+    password: process.env.MARIADB_PASSWORD,   // Pas de fallback vide
     database: process.env.MARIADB_DATABASE || 'DRB',
     port: parseInt(process.env.MARIADB_PORT || '3306'),
     connectionLimit: 10,

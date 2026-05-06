@@ -454,38 +454,50 @@ router.get('/orders', async (req, res) => {
 
     const orders = await query(sql, params);
 
-    const enrichedOrders = await Promise.all((orders || []).map(async (order) => {
-      const items = await query(
-        `SELECT id, order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams
-         FROM order_items
-         WHERE order_id = ?
-         ORDER BY id ASC`,
-        [order.id]
-      );
+    if (!orders || orders.length === 0) {
+      return res.json([]);
+    }
 
-      return {
-        ...order,
-        _id: order.id,
-        paymentIntentId: order.payment_intent_id || '',
-        totalAmount: Number(order.total_amount || 0),
-        shippingCost: Number(order.shipping_cost || 0),
-        paymentStatus: String(order.payment_status || '').toLowerCase(),
-        createdAt: order.created_at,
-        updatedAt: order.updated_at,
-        shippedAt: order.shipped_at,
-        items: (items || []).map((item) => ({
-          id: item.id,
-          orderId: item.order_id,
-          productId: item.product_id,
-          name: item.name,
-          price: Number(item.price || 0),
-          quantity: Number(item.quantity || 0),
-          image: item.image || '',
-          volume: item.volume || null,
-          fragrance: item.fragrance || null,
-          weightGrams: Number(item.weight_grams || 0)
-        }))
-      };
+    // Un seul JOIN pour récupérer tous les order_items en une requête (anti N+1)
+    const orderIds = orders.map(o => o.id);
+    const placeholders = orderIds.map(() => '?').join(',');
+    const allItems = await query(
+      `SELECT id, order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams
+       FROM order_items
+       WHERE order_id IN (${placeholders})
+       ORDER BY order_id ASC, id ASC`,
+      orderIds
+    );
+
+    // Grouper les items par order_id
+    const itemsByOrderId = {};
+    for (const item of (allItems || [])) {
+      if (!itemsByOrderId[item.order_id]) itemsByOrderId[item.order_id] = [];
+      itemsByOrderId[item.order_id].push({
+        id: item.id,
+        orderId: item.order_id,
+        productId: item.product_id,
+        name: item.name,
+        price: Number(item.price || 0),
+        quantity: Number(item.quantity || 0),
+        image: item.image || '',
+        volume: item.volume || null,
+        fragrance: item.fragrance || null,
+        weightGrams: Number(item.weight_grams || 0)
+      });
+    }
+
+    const enrichedOrders = orders.map((order) => ({
+      ...order,
+      _id: order.id,
+      paymentIntentId: order.payment_intent_id || '',
+      totalAmount: Number(order.total_amount || 0),
+      shippingCost: Number(order.shipping_cost || 0),
+      paymentStatus: String(order.payment_status || '').toLowerCase(),
+      createdAt: order.created_at,
+      updatedAt: order.updated_at,
+      shippedAt: order.shipped_at,
+      items: itemsByOrderId[order.id] || []
     }));
 
     res.json(enrichedOrders);

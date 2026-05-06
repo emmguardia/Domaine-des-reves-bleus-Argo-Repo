@@ -167,11 +167,11 @@ router.post('/forgot-password', passwordResetRateLimiter, validateForgotPassword
       [email.toLowerCase()]
     );
 
-    // Ne pas révéler si l'utilisateur existe ou non (sécurité)
+    // Toujours retourner succès pour ne pas révéler si l'email existe (anti-enumeration)
     if (!users || users.length === 0) {
       return res.json({
-        success: false,
-        message: 'Aucun compte trouvé avec cette adresse email'
+        success: true,
+        message: 'Si un compte existe avec cette adresse, un email de réinitialisation a été envoyé.'
       });
     }
 

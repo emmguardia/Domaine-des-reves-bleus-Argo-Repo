@@ -4,8 +4,8 @@ import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import Stripe from 'stripe';
-import { query, transaction } from './config/database.js';
+import pool, { query, transaction } from './config/database.js';
+import { getStripe } from './config/stripe.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,20 +31,6 @@ const PORT = process.env.PORT || 8000;
 app.set('trust proxy', 1);
 
 console.log('⚙️  [SERVER] Configuration du serveur sur le port', PORT);
-
-let stripe = null;
-const getStripe = () => {
-  if (!stripe) {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      throw new Error('STRIPE_SECRET_KEY n\'est pas défini');
-    }
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-12-18.acacia'
-    });
-    console.log('✅ [SERVER] Stripe initialisé');
-  }
-  return stripe;
-};
 
 if (!process.env.STRIPE_SECRET_KEY) {
   console.warn('⚠️  [SERVER] STRIPE_SECRET_KEY n\'est pas défini - les webhooks Stripe ne fonctionneront pas');
@@ -89,11 +75,13 @@ app.get('/api', (req, res) => {
   res.json({ message: 'Backend Les Rêves Bleus est en ligne !' });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString() 
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    await query('SELECT 1');
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'connected' });
+  } catch {
+    res.status(503).json({ status: 'error', timestamp: new Date().toISOString(), db: 'disconnected' });
+  }
 });
 
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -159,10 +147,13 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
       const cart = carts[0];
       console.log(`🛒 [WEBHOOK] Panier trouvé userId=${userId}, cartId=${cart.id}`);
 
+      // Récupérer les articles avec les vrais prix depuis la table products (anti-fraude)
       const cartItems = await query(
-        `SELECT item_id, name, price, quantity, image, volume, fragrance, weight_grams
-         FROM cart_items
-         WHERE cart_id = ?`,
+        `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) as price,
+                ci.quantity, ci.image, ci.volume, ci.fragrance, ci.weight_grams
+         FROM cart_items ci
+         LEFT JOIN products p ON p.id = ci.item_id
+         WHERE ci.cart_id = ?`,
         [cart.id]
       );
 
@@ -531,7 +522,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('═══════════════════════════════════════════════════════');
   console.log('🚀 [SERVER] Serveur démarré avec succès!');
@@ -556,14 +547,27 @@ app.listen(PORT, '0.0.0.0', () => {
   }
 });
 
-process.on('SIGTERM', () => {
-  console.log('SIGTERM reçu, arrêt du serveur...');
-  process.exit(0);
-});
+// Graceful shutdown : ferme les connexions en cours avant de quitter
+const gracefulShutdown = (signal) => {
+  console.log(`\n${signal} reçu, arrêt gracieux du serveur...`);
+  server.close(async () => {
+    console.log('✅ [SERVER] Serveur HTTP fermé, fermeture du pool DB...');
+    try {
+      if (pool) await pool.end();
+      console.log('✅ [SERVER] Pool DB fermé proprement');
+    } catch (err) {
+      console.error('❌ [SERVER] Erreur fermeture pool DB:', err.message);
+    }
+    process.exit(0);
+  });
+  // Forcer la sortie après 10s si les connexions ne se ferment pas
+  setTimeout(() => {
+    console.error('❌ [SERVER] Timeout graceful shutdown, forçage exit');
+    process.exit(1);
+  }, 10_000);
+};
 
-process.on('SIGINT', () => {
-  console.log('SIGINT reçu, arrêt du serveur...');
-  process.exit(0);
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
 
 export default app;
