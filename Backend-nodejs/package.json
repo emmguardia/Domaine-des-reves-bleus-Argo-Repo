@@ -11,24 +11,31 @@
     "init-categories": "node scripts/init-categories.js",
     "init-services": "node scripts/init-services.js"
   },
-  "keywords": ["ecommerce", "api", "nodejs"],
+  "keywords": [
+    "ecommerce",
+    "api",
+    "nodejs"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^5.2.1",
-    "mariadb": "^3.2.2",
     "bcrypt": "^6.0.0",
-    "jsonwebtoken": "^9.0.2",
-    "express-rate-limit": "^8.2.2",
-    "helmet": "^8.1.0",
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
-    "express-validator": "^7.2.0",
-    "stripe": "^20.2.0",
     "dotenv": "^17.2.3",
-    "multer": "^2.1.1",
-    "uuid": "^14.0.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.2",
+    "express-validator": "^7.2.0",
+    "helmet": "^8.1.0",
     "hpp": "^0.2.3",
-    "compression": "^1.7.4"
+    "jsonwebtoken": "^9.0.2",
+    "mariadb": "^3.2.2",
+    "multer": "^2.1.1",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "prom-client": "^15.1.3",
+    "stripe": "^20.2.0",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
