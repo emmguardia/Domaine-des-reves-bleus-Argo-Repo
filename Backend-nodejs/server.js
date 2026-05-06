@@ -6,6 +6,9 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import pool, { query, transaction } from './config/database.js';
 import { getStripe } from './config/stripe.js';
+import logger from './config/logger.js';
+import { register, ordersTotal, webhookEventsTotal } from './config/metrics.js';
+import { httpLogger, prometheusMiddleware } from './middleware/requestLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,16 +24,18 @@ import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from './uti
 
 dotenv.config();
 
-console.log('🚀 [SERVER] Démarrage du serveur...');
-console.log('📦 [SERVER] Node.js version:', process.version);
-console.log('🌍 [SERVER] Environnement:', process.env.NODE_ENV || 'development');
+logger.info({ version: process.version, env: process.env.NODE_ENV || 'development' }, '🚀 Démarrage du serveur');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
 app.set('trust proxy', 1);
 
-console.log('⚙️  [SERVER] Configuration du serveur sur le port', PORT);
+logger.info({ port: PORT }, '⚙️  Configuration du serveur');
+
+// ── Observabilité ─────────────────────────────────────────────────────────────
+app.use(prometheusMiddleware); // compteurs Prometheus (avant tous les autres middleware)
+app.use(httpLogger);           // logs JSON structurés pino-http
 
 if (!process.env.STRIPE_SECRET_KEY) {
   console.warn('⚠️  [SERVER] STRIPE_SECRET_KEY n\'est pas défini - les webhooks Stripe ne fonctionneront pas');
@@ -84,6 +89,17 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Endpoint de scrape Prometheus — exposé uniquement à l'intérieur du cluster
+// (NetworkPolicy interdit l'accès depuis l'extérieur)
+app.get('/api/metrics', async (_req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    res.status(500).end(err.message);
+  }
+});
+
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -125,7 +141,8 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
       );
 
       if (existingOrders && existingOrders.length > 0) {
-        console.log(`⚠️  [WEBHOOK] Commande déjà existante, skip pi=${paymentIntentId}, orderId=${existingOrders[0].id}`);
+        logger.warn({ pi: paymentIntentId, orderId: existingOrders[0].id }, '[WEBHOOK] Commande déjà existante, skip');
+        webhookEventsTotal.inc({ event_type: event.type, result: 'duplicate' });
         return res.json({ received: true });
       }
 
@@ -227,7 +244,8 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
       } catch (txError) {
         // Doublon UNIQUE sur payment_intent_id : create-order a déjà traité ce paiement
         if (txError.errno === 1062 || txError.code === 'ER_DUP_ENTRY') {
-          console.log(`⚠️  [WEBHOOK] Doublon ignoré (create-order plus rapide) pi=${paymentIntentId}`);
+          logger.warn({ pi: paymentIntentId }, '[WEBHOOK] Doublon ignoré (create-order plus rapide)');
+          webhookEventsTotal.inc({ event_type: event.type, result: 'duplicate' });
           return res.json({ received: true }); // 200 → Stripe ne réessaie pas
         }
         throw txError; // Relancer pour le catch extérieur
@@ -279,9 +297,12 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
         console.warn(`⚠️  [WEBHOOK] Utilisateur introuvable pour email userId=${userId}, orderId=${orderId}`);
       }
 
-      console.log(`🎉 [WEBHOOK] Commande traitée avec succès orderId=${orderId}, pi=${paymentIntentId}`);
+      logger.info({ orderId, pi: paymentIntentId }, '[WEBHOOK] Commande traitée avec succès');
+      ordersTotal.inc({ status: 'paid' });
+      webhookEventsTotal.inc({ event_type: event.type, result: 'success' });
     } catch (error) {
-      console.error(`❌ [WEBHOOK] Erreur traitement payment_intent.succeeded pi=${paymentIntentId}:`, error);
+      logger.error({ pi: paymentIntentId, err: error }, '[WEBHOOK] Erreur traitement payment_intent.succeeded');
+      webhookEventsTotal.inc({ event_type: event.type, result: 'error' });
     }
   }
 
@@ -328,10 +349,13 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
             JSON.stringify(shippingAddress)
           ]
         );
-        console.log(`💾 [WEBHOOK] Commande échouée enregistrée pi=${paymentIntentId}`);
+        logger.info({ pi: paymentIntentId }, '[WEBHOOK] Commande échouée enregistrée');
+        ordersTotal.inc({ status: 'failed' });
       }
+      webhookEventsTotal.inc({ event_type: event.type, result: 'success' });
     } catch (error) {
-      console.error(`❌ [WEBHOOK] Erreur traitement payment_failed pi=${paymentIntentId}:`, error);
+      logger.error({ pi: paymentIntentId, err: error }, '[WEBHOOK] Erreur traitement payment_failed');
+      webhookEventsTotal.inc({ event_type: event.type, result: 'error' });
     }
   }
 
@@ -523,46 +547,40 @@ app.use((err, req, res, next) => {
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log('');
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('🚀 [SERVER] Serveur démarré avec succès!');
-  console.log('═══════════════════════════════════════════════════════');
-  console.log(`📡 [SERVER] Port: ${PORT}`);
-  console.log(`🌍 [SERVER] Environnement: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 [SERVER] API disponible sur http://0.0.0.0:${PORT}/api`);
-  console.log(`🏥 [SERVER] Health check: http://0.0.0.0:${PORT}/api/health`);
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('');
-  
+  logger.info({
+    port: PORT,
+    env: process.env.NODE_ENV || 'development',
+    api: `http://0.0.0.0:${PORT}/api`,
+    health: `http://0.0.0.0:${PORT}/api/health`,
+    metrics: `http://0.0.0.0:${PORT}/api/metrics`,
+  }, '🚀 Serveur démarré avec succès');
+
   if (process.env.MARIADB_HOST && process.env.MARIADB_PASSWORD) {
     query('SELECT 1').then(() => {
-      console.log('✅ [STARTUP] Connexion à la base de données: OK');
+      logger.info('✅ Connexion à la base de données: OK');
     }).catch((error) => {
-      console.error('❌ [STARTUP] Connexion à la base de données: ÉCHEC -', error.message);
-      console.warn('⚠️  [STARTUP] Le serveur continue mais les routes nécessitant la DB ne fonctionneront pas');
+      logger.error({ err: error }, '❌ Connexion à la base de données: ÉCHEC');
     });
   } else {
-    console.warn('⚠️  [STARTUP] Base de données non configurée (MARIADB_HOST ou MARIADB_PASSWORD manquant)');
-    console.warn('⚠️  [STARTUP] Mode développement - le serveur démarre sans DB');
+    logger.warn('⚠️  Base de données non configurée — mode développement sans DB');
   }
 });
 
 // Graceful shutdown : ferme les connexions en cours avant de quitter
 const gracefulShutdown = (signal) => {
-  console.log(`\n${signal} reçu, arrêt gracieux du serveur...`);
+  logger.info({ signal }, 'Arrêt gracieux du serveur...');
   server.close(async () => {
-    console.log('✅ [SERVER] Serveur HTTP fermé, fermeture du pool DB...');
+    logger.info('Serveur HTTP fermé, fermeture du pool DB...');
     try {
       if (pool) await pool.end();
-      console.log('✅ [SERVER] Pool DB fermé proprement');
+      logger.info('Pool DB fermé proprement');
     } catch (err) {
-      console.error('❌ [SERVER] Erreur fermeture pool DB:', err.message);
+      logger.error({ err }, 'Erreur fermeture pool DB');
     }
     process.exit(0);
   });
-  // Forcer la sortie après 10s si les connexions ne se ferment pas
   setTimeout(() => {
-    console.error('❌ [SERVER] Timeout graceful shutdown, forçage exit');
+    logger.error('Timeout graceful shutdown — forçage exit(1)');
     process.exit(1);
   }, 10_000);
 };

@@ -38,6 +38,12 @@ backend:
     maxReplicas: 5
     cpuTarget: 70
     memoryTarget: 80
+  metrics:
+    # Mettre à true si Prometheus Operator est installé (kube-prometheus-stack)
+    # pour activer le ServiceMonitor de scraping automatique.
+    # L'endpoint /api/metrics est toujours exposé, indépendamment de ce flag.
+    enabled: false
+    scrapeInterval: 30s
 
 # ── Frontend (nginx) ──────────────────────────────────────────────────────────
 frontend:

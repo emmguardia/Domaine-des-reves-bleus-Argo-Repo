@@ -1,0 +1,22 @@
+{{- /* ServiceMonitor — scraping Prometheus Operator (optionnel, activé via values.yaml) */ -}}
+{{- if .Values.backend.metrics.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: domaine-des-reves-bleus-backend
+  namespace: {{ include "drb.namespace" . }}
+  labels:
+    {{- include "drb.labels" . | nindent 4 }}
+    # Label nécessaire pour que Prometheus Operator détecte ce ServiceMonitor
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      {{- include "drb.backend.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /api/metrics
+      interval: {{ .Values.backend.metrics.scrapeInterval | default "30s" }}
+      scheme: http
+{{- end }}
