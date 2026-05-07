@@ -47,7 +47,9 @@ router.post('/create-payment-intent', validateCreatePaymentIntent, async (req, r
       carts = cartRows;
 
       const items = await conn.query(
-        `SELECT ci.item_id, ci.quantity, COALESCE(p.price, ci.price) as unit_price
+        `SELECT ci.item_id, ci.name, ci.quantity,
+                COALESCE(p.price, ci.price) as unit_price,
+                ci.volume, ci.fragrance, ci.weight_grams
          FROM cart_items ci
          LEFT JOIN products p ON p.id = ci.item_id
          WHERE ci.cart_id = ?`,
@@ -146,6 +148,37 @@ router.post('/create-payment-intent', validateCreatePaymentIntent, async (req, r
         }
       });
       console.log(`[PAYMENT-INTENT] Créé userId=${userId}, pi=${paymentIntent.id}, amount=${paymentIntent.amount}, status=${paymentIntent.status}`);
+
+      // Snapshot complet de la commande — filet de sécurité si create-order ne s'exécute pas
+      // (navigateur fermé, crash réseau, etc.). Contient tout pour recréer la commande manuellement.
+      logger.info({
+        event: 'ORDER_SNAPSHOT',
+        pi: paymentIntent.id,
+        userId,
+        amountCents: paymentIntent.amount,
+        currency,
+        shippingCostEuros: shippingCost || 0,
+        pickupLocation: pickupLocation || null,
+        shipping: shippingInfo ? {
+          firstName: metadata.firstName,
+          lastName:  metadata.lastName,
+          email:     metadata.email,
+          phone:     metadata.phone,
+          address:   metadata.address,
+          city:      metadata.city,
+          postalCode: metadata.postalCode,
+          country:   metadata.country,
+        } : null,
+        items: cartItems.map(i => ({
+          id:       i.item_id,
+          name:     i.name,
+          qty:      Number(i.quantity),
+          unitEuros: parseFloat(i.unit_price),
+          volume:   i.volume   || null,
+          fragrance: i.fragrance || null,
+          weightG:  i.weight_grams || null,
+        })),
+      }, '📦 ORDER_SNAPSHOT — toutes les infos pour recréer la commande si nécessaire');
 
       res.json({
         clientSecret: paymentIntent.client_secret

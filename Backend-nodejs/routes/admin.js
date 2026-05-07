@@ -6,6 +6,8 @@ import { generateAdminToken } from '../utils/jwt.js';
 import { validateProductId, validateCreateProduct, handleValidationErrors, body, param } from '../middleware/validation.js';
 import { adminAuthRateLimiter } from '../config/security.js';
 import { checkIPBan, recordFailedAttempt, resetFailedAttempts, isIPBanned } from '../middleware/ipBan.js';
+import { getStripe } from '../config/stripe.js';
+import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from '../utils/email.js';
 const router = express.Router();
 
 /** MIME types autorisés pour l'upload base64 (comme Clos de la Reine) */
@@ -1211,6 +1213,164 @@ router.delete('/categories/:id', [
       error: 'Erreur serveur',
       detail: 'Erreur lors de la suppression de la catégorie'
     });
+  }
+});
+
+/**
+ * POST /api/admin/recover-order
+ * Filet de sécurité : crée une commande depuis un payment_intent_id Stripe
+ * pour les cas où le navigateur du client s'est fermé avant la confirmation.
+ *
+ * Toutes les infos viennent de Stripe (metadata) + du panier encore en DB.
+ * En cas de panier déjà vidé : utilise les articles du snapshot log (manuel).
+ *
+ * Usage : POST /api/admin/recover-order { "paymentIntentId": "pi_xxx" }
+ */
+router.post('/recover-order', verifyAdminToken, async (req, res) => {
+  const { paymentIntentId } = req.body;
+
+  if (!paymentIntentId || !paymentIntentId.startsWith('pi_')) {
+    return res.status(400).json({ error: 'paymentIntentId invalide' });
+  }
+
+  console.log(`[RECOVER-ORDER] Tentative récupération pi=${paymentIntentId}`);
+
+  try {
+    // 1. Vérifier qu'il n'y a pas déjà une commande
+    const existing = await query(
+      'SELECT id, status FROM orders WHERE payment_intent_id = ?',
+      [paymentIntentId]
+    );
+    if (existing && existing.length > 0) {
+      console.log(`[RECOVER-ORDER] Commande déjà existante orderId=${existing[0].id}`);
+      return res.json({ success: true, orderId: existing[0].id, alreadyExists: true, status: existing[0].status });
+    }
+
+    // 2. Récupérer le payment intent depuis Stripe
+    const stripeInstance = getStripe();
+    const paymentIntent = await stripeInstance.paymentIntents.retrieve(paymentIntentId);
+
+    console.log(`[RECOVER-ORDER] Stripe status=${paymentIntent.status}, userId=${paymentIntent.metadata?.userId}`);
+
+    if (paymentIntent.status !== 'succeeded') {
+      return res.status(400).json({
+        error: 'Paiement non confirmé',
+        stripeStatus: paymentIntent.status,
+        detail: 'Le paiement n\'a pas abouti — aucune commande créée'
+      });
+    }
+
+    const userId = paymentIntent.metadata?.userId;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId manquant dans les metadata Stripe' });
+    }
+
+    const amountCents   = paymentIntent.amount;
+    const shippingCents = Math.round(parseFloat(paymentIntent.metadata?.shippingCost || 0) * 100);
+    const pickupLocation = paymentIntent.metadata?.pickupLocation || null;
+    const meta = paymentIntent.metadata;
+
+    // 3. Récupérer le panier depuis la DB (toujours là si clearCart = React only)
+    const carts = await query('SELECT id FROM carts WHERE user_id = ?', [userId]);
+    let cartItems = [];
+    if (carts && carts.length > 0) {
+      cartItems = await query(
+        `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) as price,
+                ci.quantity, ci.image, ci.volume, ci.fragrance, ci.weight_grams
+         FROM cart_items ci
+         LEFT JOIN products p ON p.id = ci.item_id
+         WHERE ci.cart_id = ?`,
+        [carts[0].id]
+      );
+    }
+
+    if (!cartItems || cartItems.length === 0) {
+      // Le panier est vide — l'admin doit recréer manuellement depuis les logs ORDER_SNAPSHOT
+      console.warn(`[RECOVER-ORDER] ⚠️ Panier vide pour userId=${userId}. Rechercher ORDER_SNAPSHOT pi=${paymentIntentId} dans les logs.`);
+      return res.status(409).json({
+        error: 'Panier vide',
+        detail: `Le panier de l'utilisateur ${userId} est vide. Rechercher "ORDER_SNAPSHOT" et "pi=${paymentIntentId}" dans les logs pour retrouver les articles.`,
+        stripeMetadata: meta
+      });
+    }
+
+    // 4. Créer la commande en DB
+    let orderId;
+    await transaction(async (conn) => {
+      const subtotalCents = cartItems.reduce((sum, item) =>
+        sum + Math.round(parseFloat(item.price) * 100) * Number(item.quantity), 0);
+      const totalCents = subtotalCents + shippingCents;
+
+      const orderResult = await conn.query(
+        `INSERT INTO orders
+           (user_id, status, total_amount, shipping_cost, payment_intent_id,
+            shipping_first_name, shipping_last_name, shipping_email, shipping_phone,
+            shipping_address, shipping_city, shipping_postal_code, shipping_country,
+            pickup_location, created_at, updated_at)
+         VALUES (?, 'paid', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          userId,
+          (totalCents / 100).toFixed(2),
+          (shippingCents / 100).toFixed(2),
+          paymentIntentId,
+          meta.firstName   || '',
+          meta.lastName    || '',
+          meta.email       || '',
+          meta.phone       || '',
+          meta.address     || '',
+          meta.city        || '',
+          meta.postalCode  || '',
+          meta.country     || 'France',
+          pickupLocation
+        ]
+      );
+      orderId = Number(orderResult.insertId);
+
+      for (const item of cartItems) {
+        await conn.query(
+          `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [orderId, item.item_id, item.name,
+           parseFloat(item.price).toFixed(2), Number(item.quantity),
+           item.image || null, item.volume || null, item.fragrance || null, item.weight_grams || null]
+        );
+      }
+
+      // Vider le panier en DB maintenant que la commande est créée
+      await conn.query('DELETE FROM cart_items WHERE cart_id = ?', [carts[0].id]);
+    });
+
+    console.log(`[RECOVER-ORDER] ✅ Commande créée orderId=${orderId}, userId=${userId}, pi=${paymentIntentId}`);
+
+    // 5. Envoyer les emails (non-bloquant)
+    try {
+      const user = await query('SELECT first_name, last_name, email, phone FROM users WHERE id = ?', [userId]);
+      if (user && user.length > 0) {
+        const orderData = {
+          orderId,
+          items: cartItems,
+          totalAmount: (amountCents / 100).toFixed(2),
+          shippingCost: (shippingCents / 100).toFixed(2),
+          shippingInfo: {
+            firstName: meta.firstName, lastName: meta.lastName,
+            address: meta.address, city: meta.city,
+            postalCode: meta.postalCode, country: meta.country,
+            pickupLocation
+          }
+        };
+        await sendOrderConfirmationEmail(user[0].email, orderData);
+        await sendNewOrderNotificationEmail({ customerEmail: user[0].email, ...orderData });
+        console.log(`[RECOVER-ORDER] 📧 Emails envoyés orderId=${orderId}`);
+      }
+    } catch (emailErr) {
+      console.error(`[RECOVER-ORDER] ⚠️ Erreur emails orderId=${orderId}:`, emailErr.message);
+    }
+
+    res.json({ success: true, orderId, recovered: true });
+
+  } catch (error) {
+    console.error(`[RECOVER-ORDER] ❌ Erreur pi=${paymentIntentId}:`, error.message);
+    res.status(500).json({ error: 'Erreur serveur', detail: error.message });
   }
 });
 
