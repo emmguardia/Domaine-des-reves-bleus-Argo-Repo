@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaShoppingCart, FaExclamationTriangle } from 'react-icons/fa';
+import { FaShoppingCart, FaExclamationTriangle, FaLock } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { getApiUrl } from '../utils/security';
 import { logger } from '../utils/logger';
 interface Product {
@@ -21,6 +23,7 @@ interface Product {
 }
 const Products: React.FC = () => {
   const { addToCart } = useCart();
+  const { user } = useAuth();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +32,8 @@ const Products: React.FC = () => {
   const [selectedFragrances, setSelectedFragrances] = useState<{ [key: string]: string }>({});
   // Animation "Ajouté ✓" sur le bouton après ajout au panier
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
+  // Toast "Connectez-vous" pour les visiteurs non connectés
+  const [showLoginToast, setShowLoginToast] = useState(false);
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -157,6 +162,12 @@ const Products: React.FC = () => {
     }));
   };
   const handleAddToCart = (product: Product) => {
+    // Point 4 — visiteur non connecté
+    if (!user) {
+      setShowLoginToast(true);
+      setTimeout(() => setShowLoginToast(false), 3000);
+      return;
+    }
     const selectedVolume = selectedVolumes[product.id];
     const selectedFragrance = selectedFragrances[product.id];
     let finalPrice = product.price;
@@ -212,6 +223,25 @@ const Products: React.FC = () => {
   }
   return (
     <div className="min-h-screen bg-gray-50 pt-24 sm:pt-28 md:pt-32 pb-8">
+      {/* Point 4 — toast "Connectez-vous" pour les visiteurs non connectés */}
+      <AnimatePresence>
+        {showLoginToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-white border border-blue-200 shadow-lg rounded-xl px-5 py-3 flex items-center gap-3 text-sm"
+          >
+            <FaLock className="text-blue-500 flex-shrink-0" />
+            <span className="text-gray-700">
+              Connectez-vous pour ajouter au panier —{' '}
+              <Link to="/login" className="text-blue-600 font-semibold hover:underline">
+                Se connecter
+              </Link>
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -221,14 +251,15 @@ const Products: React.FC = () => {
             Découvrez notre gamme complète de produits professionnels pour le toilettage de vos compagnons à quatre pattes
           </p>
         </div>
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
+        {/* Point 5 — scroll horizontal sur mobile, flex-wrap sur desktop */}
+        <div className="flex overflow-x-auto md:flex-wrap md:justify-center gap-2 mb-8 pb-1 scrollbar-hide">
           {categories.map((category) => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`flex-shrink-0 px-6 py-2 rounded-full text-sm font-medium transition-colors ${
                 selectedCategory === category
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
               }`}
             >
@@ -247,12 +278,13 @@ const Products: React.FC = () => {
                 transition={{ duration: 0.3 }}
                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col"
               >
-                <div className="relative h-48 bg-gray-200">
+                {/* Point 3 — overflow-hidden + zoom image au hover */}
+                <div className="relative h-48 bg-gray-200 overflow-hidden">
                   {product.image ? (
                     <img
                       src={product.image}
                       alt={product.name}
-                      className="w-full h-full object-cover cursor-pointer"
+                      className="w-full h-full object-cover cursor-pointer transition-transform duration-500 hover:scale-110"
                       onClick={() => setSelectedImage(product.image)}
                       loading="lazy"
                       onError={(e) => {
@@ -340,8 +372,16 @@ const Products: React.FC = () => {
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-auto pt-3">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {getProductPrice(product).toFixed(2)} €
+                    <div>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {getProductPrice(product).toFixed(2)} €
+                      </div>
+                      {/* Point 2 — badge rupture visible sous le prix */}
+                      {product.stock === 0 && (
+                        <span className="inline-block mt-1 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                          Indisponible
+                        </span>
+                      )}
                     </div>
                     <motion.button
                       onClick={() => handleAddToCart(product)}

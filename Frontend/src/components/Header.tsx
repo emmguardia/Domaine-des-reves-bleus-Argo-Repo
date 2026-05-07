@@ -13,6 +13,12 @@ const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { cartCount } = useCart();
+  // Badge pulse : on re-monte la key à chaque changement de cartCount
+  // → framer-motion re-joue l'animation initial→animate automatiquement
+  const [prevCartCount, setPrevCartCount] = useState(cartCount);
+  useEffect(() => {
+    setPrevCartCount(cartCount);
+  }, [cartCount]);
   useEffect(() => {
     const handleAuthStateChange = (event: CustomEvent) => {
       setIsLoggedIn(!!event.detail);
@@ -91,11 +97,19 @@ const Header: React.FC = () => {
                 className="relative text-gray-600 hover:text-primary transition-colors p-2"
               >
                 <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-[10px] sm:text-xs">
-                    {cartCount}
-                  </span>
-                )}
+                <AnimatePresence>
+                  {cartCount > 0 && (
+                    <motion.span
+                      key={cartCount}
+                      initial={{ scale: 1.8, opacity: 0.6 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 600, damping: 18 }}
+                      className="absolute -top-1 -right-1 bg-primary text-white rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center text-[10px] sm:text-xs font-bold"
+                    >
+                      {cartCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </button>
               <div className="hidden md:flex items-center space-x-3 xl:space-x-4">
                 {isLoggedIn && user ? (
