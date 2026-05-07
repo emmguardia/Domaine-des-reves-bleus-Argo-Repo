@@ -82,8 +82,8 @@ jobs:
         run: cd Frontend && npm audit --audit-level=high
 
       - name: Frontend – lint
-        run: cd Frontend && npm run lint -- --max-warnings 999
-        continue-on-error: true
+        run: cd Frontend && npm run lint
+        continue-on-error: true  # lint informatif — corriger les warnings progressivement
 
       - name: Frontend – test (if present)
         run: cd Frontend && npm run test --if-present
@@ -93,7 +93,7 @@ jobs:
     needs: test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: write
       packages: write
@@ -156,7 +156,27 @@ jobs:
           tags: |
             type=raw,value=${{ steps.tag.outputs.tag }}
 
-      - name: Build and push backend
+      # Étape 1 : build local pour le scan Trivy (pas de push)
+      - name: Build backend (local — pour scan Trivy)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Backend-nodejs
+          load: true          # charge dans le démon Docker local, sans push
+          push: false
+          tags: scan-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          pull: true
+
+      # Étape 2 : scan AVANT push — image vulnérable ne part jamais dans GHCR
+      - name: Trivy scan backend (avant push)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --format table \
+            scan-backend:latest
+
+      # Étape 3 : push uniquement si le scan est clean
+      - name: Push backend
         id: build-backend
         uses: docker/build-push-action@v6
         with:
@@ -164,17 +184,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
-          no-cache: true
+          cache-from: type=gha   # toutes les couches en cache → push quasi-instantané
           pull: true
-
-      - name: Trivy scan (backend)
-        env:
-          TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD \
-            ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --format table \
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/domaine-des-reves-bleus-back:${{ steps.tag.outputs.tag }}
 
       # ── Frontend ─────────────────────────────────────────────────────────────
       - name: Frontend – install & build (dist/ requis par Dockerfile)
@@ -191,7 +202,24 @@ jobs:
           tags: |
             type=raw,value=${{ steps.tag.outputs.tag }}
 
-      - name: Build and push frontend
+      - name: Build frontend (local — pour scan Trivy)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Frontend
+          load: true
+          push: false
+          tags: scan-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          pull: true
+
+      - name: Trivy scan frontend (avant push)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --format table \
+            scan-frontend:latest
+
+      - name: Push frontend
         id: build-frontend
         uses: docker/build-push-action@v6
         with:
@@ -199,17 +227,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
-          no-cache: true
+          cache-from: type=gha
           pull: true
-
-      - name: Trivy scan (frontend)
-        env:
-          TRIVY_USERNAME: ${{ github.actor }}
-          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD \
-            ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --format table \
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/domaine-des-reves-bleus-front:${{ steps.tag.outputs.tag }}
 
       # ── Pin digest dans values.yaml → ArgoCD sync automatique ────────────────
       - name: Pin Helm values to image digest

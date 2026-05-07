@@ -32,7 +32,7 @@ spec:
           imagePullPolicy: {{ .Values.backend.imagePullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -102,6 +102,8 @@ spec:
             - name: secrets
               mountPath: /app/secrets
               readOnly: true
+            - name: tmp
+              mountPath: /tmp   # Node.js peut écrire en /tmp (readOnlyRootFilesystem: true)
           startupProbe:
             httpGet:
               path: /api/health
@@ -127,6 +129,8 @@ spec:
             failureThreshold: 6
       volumes:
         - name: uploads
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
         - name: secrets
           secret:

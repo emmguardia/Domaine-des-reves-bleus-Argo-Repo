@@ -1,6 +1,7 @@
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import hpp from 'hpp';
+import { timingSafeEqual } from 'crypto';
 
 export const createRateLimiter = (windowMs, max, message) => {
   return rateLimit({
@@ -141,15 +142,15 @@ export const validateOrigin = (req, res, next) => {
   next();
 };
 
+// Comparaison en temps constant — immune aux timing attacks.
+// Utilise crypto.timingSafeEqual (Node.js natif, certifié constant-time).
 export const constantTimeCompare = (a, b) => {
-  if (a.length !== b.length) {
+  const bufA = Buffer.from(String(a), 'utf8');
+  const bufB = Buffer.from(String(b), 'utf8');
+  // Toujours comparer, même si longueurs différentes, pour éviter le leak sur la longueur
+  if (bufA.length !== bufB.length) {
+    timingSafeEqual(bufA, Buffer.alloc(bufA.length)); // consomme du temps
     return false;
   }
-  
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  
-  return result === 0;
+  return timingSafeEqual(bufA, bufB);
 };

@@ -1,6 +1,9 @@
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET;
+// Secret dédié aux tokens admin — isolé du secret user pour éviter l'élévation de
+// privilèges. Si JWT_ADMIN_SECRET n'est pas défini, fallback sur JWT_SECRET (rétro-compat).
+const JWT_ADMIN_SECRET = process.env.JWT_ADMIN_SECRET || process.env.JWT_SECRET;
 
 const normalizeJwtValue = (value) => {
   if (typeof value === 'bigint') {
@@ -21,7 +24,7 @@ const normalizeJwtValue = (value) => {
 };
 
 if (!JWT_SECRET) {
-  console.error('⚠️  JWT_SECRET n\'est pas défini dans les variables d\'environnement');
+  process.stderr.write('⚠️  JWT_SECRET n\'est pas défini dans les variables d\'environnement\n');
 }
 
 /**
@@ -61,11 +64,11 @@ export const generateToken = (userId, rememberMe = false, options = {}) => {
 };
 
 /**
- * Génère un token JWT pour un admin
+ * Génère un token JWT pour un admin — signé avec JWT_ADMIN_SECRET (secret isolé)
  */
 export const generateAdminToken = (adminId) => {
-  if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET non configuré');
+  if (!JWT_ADMIN_SECRET) {
+    throw new Error('JWT_ADMIN_SECRET non configuré');
   }
 
   const expiresAt = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60); // 7 jours
@@ -76,7 +79,7 @@ export const generateAdminToken = (adminId) => {
     exp: expiresAt
   };
 
-  return jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256' });
+  return jwt.sign(payload, JWT_ADMIN_SECRET, { algorithm: 'HS256' });
 };
 
 /**
