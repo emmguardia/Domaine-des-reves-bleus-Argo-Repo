@@ -227,15 +227,18 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
           console.log(`✅ [WEBHOOK] Commande insérée orderId=${orderId}, userId=${userId}`);
 
           for (const item of cartItems) {
+            // Jamais de base64 dans order_items.image — colonne trop petite.
+            const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : null;
             await conn.query(
               `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
-               VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 orderId,
+                item.item_id || null,
                 item.name,
                 item.price,
                 item.quantity,
-                item.image,
+                imageForDb,
                 item.volume || null,
                 item.fragrance || null,
                 item.weight_grams || 100

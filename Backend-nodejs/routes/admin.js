@@ -460,14 +460,19 @@ router.get('/orders', async (req, res) => {
       return res.json([]);
     }
 
-    // Un seul JOIN pour récupérer tous les order_items en une requête (anti N+1)
+    // Un seul JOIN pour récupérer tous les order_items en une requête (anti N+1).
+    // COALESCE(NULLIF(oi.image,''), p.image) : récupère l'image depuis products si
+    // order_items.image est null/vide (images base64 non stockées en DB → product_id utilisé).
     const orderIds = orders.map(o => o.id);
     const placeholders = orderIds.map(() => '?').join(',');
     const allItems = await query(
-      `SELECT id, order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams
-       FROM order_items
-       WHERE order_id IN (${placeholders})
-       ORDER BY order_id ASC, id ASC`,
+      `SELECT oi.id, oi.order_id, oi.product_id, oi.name, oi.price, oi.quantity,
+              COALESCE(NULLIF(oi.image, ''), p.image) AS image,
+              oi.volume, oi.fragrance, oi.weight_grams
+       FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id IN (${placeholders})
+       ORDER BY oi.order_id ASC, oi.id ASC`,
       orderIds
     );
 

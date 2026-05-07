@@ -485,10 +485,14 @@ router.post('/create-order', async (req, res) => {
       orderId = orderResult.insertId;
 
       for (const item of cartItems) {
+        // Ne jamais stocker de base64 dans order_items.image (colonne trop petite,
+        // et inutile — l'admin récupère l'image depuis products via product_id).
+        const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : null;
         await conn.query(
           `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
-           VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
-          [orderId, item.name, item.price, item.quantity, item.image,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [orderId, item.item_id || null, item.name, parseFloat(item.price),
+           Number(item.quantity), imageForDb,
            item.volume || null, item.fragrance || null, item.weight_grams || 100]
         );
       }
@@ -634,11 +638,13 @@ router.post('/record-failed', async (req, res) => {
       orderId = Number(result.insertId);
 
       for (const item of cartItems) {
+        const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : null;
         await conn.query(
           `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
-           VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
-          [orderId, item.name, parseFloat(item.price).toFixed(2), Number(item.quantity),
-           item.image || null, item.volume || null, item.fragrance || null, item.weight_grams || null]
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [orderId, item.item_id || null, item.name,
+           parseFloat(item.price).toFixed(2), Number(item.quantity),
+           imageForDb, item.volume || null, item.fragrance || null, item.weight_grams || null]
         );
       }
     });
