@@ -653,7 +653,8 @@ const CheckoutForm: React.FC<{ clientSecret: string }> = ({ clientSecret }) => {
   );
 };
 const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51RGyN2FPffgTXsMQPJKAbFWVpexGFKoGVXwqVkMYVuYXF4C4D20Qjh6hxt1EgcfQJz834fd5El7AwxOIIfHPuSH600wxmrPm6A',
+  // PROD (live) — À RESTAURER APRÈS LE TEST : pk_test_51RGyN2FPffgTXsMQPJKAbFWVpexGFKoGVXwqVkMYVuYXF4C4D20Qjh6hxt1EgcfQJz834fd5El7AwxOIIfHPuSH600wxmrPm6A
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51RGyw32XjKwHiB5J1a4wvTeBhIrgbiyPQUdLJtV4ZMdwh1VdIJMJcgv4UT2roHeixiHxaEdFCxt4XfvcJsJtTWSh00GQTr1ooF',
   {
     betas: [],
     locale: 'fr'
