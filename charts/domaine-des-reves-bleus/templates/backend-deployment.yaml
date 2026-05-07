@@ -73,6 +73,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secretName }}
                   key: jwt-secret
+            - name: JWT_ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: jwt-admin-secret
             - name: MARIADB_HOST
               valueFrom:
                 secretKeyRef:
