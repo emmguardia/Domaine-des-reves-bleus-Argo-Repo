@@ -168,10 +168,12 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
       const cart = carts[0];
       console.log(`🛒 [WEBHOOK] Panier trouvé userId=${userId}, cartId=${cart.id}`);
 
-      // Récupérer les articles avec les vrais prix depuis la table products (anti-fraude)
+      // Récupérer les articles avec les vrais prix depuis la table products (anti-fraude).
+      // COALESCE(NULLIF(ci.image,''), p.image) : image depuis products si cart ne l'a pas.
       const cartItems = await query(
         `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) as price,
-                ci.quantity, ci.image, ci.volume, ci.fragrance, ci.weight_grams
+                ci.quantity, COALESCE(NULLIF(ci.image, ''), p.image) as image,
+                ci.volume, ci.fragrance, ci.weight_grams
          FROM cart_items ci
          LEFT JOIN products p ON p.id = ci.item_id
          WHERE ci.cart_id = ?`,

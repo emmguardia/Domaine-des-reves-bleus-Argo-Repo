@@ -44,11 +44,17 @@ router.get('/', async (req, res) => {
       cart = carts[0];
     }
 
-    // Récupérer les items du panier
+    // Récupérer les items du panier.
+    // COALESCE(NULLIF(ci.image,''), p.image) : si l'image en base64 n'a pas été
+    // envoyée lors de la sauvegarde panier (pour éviter le 413), on la récupère
+    // directement depuis la table products.
     const cartItems = await query(
-      `SELECT item_id, name, price, quantity, image, volume, weight_grams, fragrance
-       FROM cart_items 
-       WHERE cart_id = ?`,
+      `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) AS price,
+              ci.quantity, COALESCE(NULLIF(ci.image, ''), p.image) AS image,
+              ci.volume, ci.weight_grams, ci.fragrance
+       FROM cart_items ci
+       LEFT JOIN products p ON p.id = ci.item_id
+       WHERE ci.cart_id = ?`,
       [cart.id]
     );
     console.log(`🛒 [CART-GET] Panier chargé userId=${userId}, cartId=${toSafeNumber(cart.id)}, items=${cartItems.length}`);
@@ -147,9 +153,12 @@ router.post('/', validateCartItem, async (req, res) => {
 
     const cart = carts[0];
     const cartItems = await query(
-      `SELECT item_id, name, price, quantity, image, volume, weight_grams, fragrance
-       FROM cart_items 
-       WHERE cart_id = ?`,
+      `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) AS price,
+              ci.quantity, COALESCE(NULLIF(ci.image, ''), p.image) AS image,
+              ci.volume, ci.weight_grams, ci.fragrance
+       FROM cart_items ci
+       LEFT JOIN products p ON p.id = ci.item_id
+       WHERE ci.cart_id = ?`,
       [cart.id]
     );
     console.log(`🛒 [CART-UPDATE] Panier mis à jour userId=${userId}, cartId=${toSafeNumber(cart.id)}, itemsFinal=${cartItems.length}`);

@@ -134,14 +134,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           logger.log('Sauvegarde du panier sur le backend');
           const cleanItems = cartItems
-            .filter(item => item.id && item.name && item.price && item.quantity && item.image)
+            // Ne pas filtrer sur item.image — les images base64 seront strippées,
+            // le backend les récupère depuis la table products via JOIN
+            .filter(item => item.id && item.name && item.price != null && item.quantity)
             .map(item => ({
               id: item.id,
               name: item.name,
               price: item.price,
               quantity: item.quantity,
-              image: item.image,
-              volume: item.volume ?? undefined,
+              // Bloquer les images base64 (ex: 200KB+) — causeraient un 413.
+              // Le backend fetch l'image depuis products via COALESCE(ci.image, p.image).
+              image: item.image?.startsWith('data:') ? '' : (item.image || ''),
+              volume: item.volume ?? null,
+              fragrance: item.fragrance ?? null,
               weightGrams: item.weightGrams ?? 100
             }));
           logger.log('Données nettoyées pour sauvegarde');
