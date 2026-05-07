@@ -5,6 +5,7 @@ import { validateCreatePaymentIntent } from '../middleware/validation.js';
 import { publicRateLimiter } from '../config/security.js';
 import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from '../utils/email.js';
 import { getStripe } from '../config/stripe.js';
+import logger from '../config/logger.js';
 
 const router = express.Router();
 
