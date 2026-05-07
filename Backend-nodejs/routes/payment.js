@@ -549,4 +549,102 @@ router.post('/create-order', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/payment/record-failed
+ * Enregistre un paiement échoué en DB pour suivi dans l'admin panel.
+ * Appelé par OrderConfirmation quand redirect_status !== 'succeeded'.
+ */
+router.post('/record-failed', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { paymentIntentId } = req.body;
+
+    if (!paymentIntentId || !paymentIntentId.startsWith('pi_')) {
+      return res.status(400).json({ error: 'paymentIntentId invalide' });
+    }
+
+    console.log(`[RECORD-FAILED] Début userId=${userId}, pi=${paymentIntentId}`);
+
+    // Déjà enregistré ?
+    const existing = await query(
+      'SELECT id FROM orders WHERE payment_intent_id = ?',
+      [paymentIntentId]
+    );
+    if (existing && existing.length > 0) {
+      return res.json({ success: true, orderId: existing[0].id, alreadyExists: true });
+    }
+
+    // Récupérer les infos depuis Stripe
+    const stripeInstance = getStripe();
+    const paymentIntent = await stripeInstance.paymentIntents.retrieve(paymentIntentId);
+
+    // Vérifier que le PI appartient bien à cet utilisateur
+    if (paymentIntent.metadata?.userId !== userId.toString()) {
+      return res.status(403).json({ error: 'Non autorisé' });
+    }
+
+    // Ne pas écraser un paiement réussi
+    if (paymentIntent.status === 'succeeded') {
+      return res.status(400).json({ error: 'Ce paiement a réussi — utiliser create-order' });
+    }
+
+    const meta = paymentIntent.metadata || {};
+    const shippingAddress = {
+      firstName:    meta.firstName   || '',
+      lastName:     meta.lastName    || '',
+      email:        meta.email       || '',
+      phone:        meta.phone       || '',
+      address:      meta.address     || '',
+      city:         meta.city        || '',
+      postalCode:   meta.postalCode  || '',
+      country:      meta.country     || 'France',
+      pickupLocation: meta.pickupLocation || null,
+    };
+    const shippingCost = parseFloat(meta.shippingCost || 0);
+
+    // Récupérer les articles du panier (encore en DB si clearCart = React only)
+    const carts = await query('SELECT id FROM carts WHERE user_id = ?', [userId]);
+    let cartItems = [];
+    if (carts && carts.length > 0) {
+      cartItems = await query(
+        `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) as price,
+                ci.quantity, ci.image, ci.volume, ci.fragrance, ci.weight_grams
+         FROM cart_items ci
+         LEFT JOIN products p ON p.id = ci.item_id
+         WHERE ci.cart_id = ?`,
+        [carts[0].id]
+      );
+    }
+
+    const totalAmount = (paymentIntent.amount / 100).toFixed(2);
+
+    let orderId;
+    await transaction(async (conn) => {
+      const result = await conn.query(
+        `INSERT INTO orders (user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
+                            status, payment_status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'failed', 'failed', NOW(), NOW())`,
+        [userId, paymentIntentId, totalAmount, shippingCost.toFixed(2), JSON.stringify(shippingAddress)]
+      );
+      orderId = Number(result.insertId);
+
+      for (const item of cartItems) {
+        await conn.query(
+          `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
+           VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+          [orderId, item.name, parseFloat(item.price).toFixed(2), Number(item.quantity),
+           item.image || null, item.volume || null, item.fragrance || null, item.weight_grams || null]
+        );
+      }
+    });
+
+    console.log(`[RECORD-FAILED] ⚠️ Paiement échoué enregistré orderId=${orderId}, pi=${paymentIntentId}, status=${paymentIntent.status}`);
+
+    res.json({ success: true, orderId });
+  } catch (error) {
+    console.error('[RECORD-FAILED] Erreur:', error.message);
+    res.status(500).json({ error: 'Erreur serveur', detail: error.message });
+  }
+});
+
 export default router;
