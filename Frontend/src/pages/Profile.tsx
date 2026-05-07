@@ -4,6 +4,7 @@ import { getApiUrl } from '../utils/security';
 import { secureStorage } from '../utils/security';
 import { logger } from '../utils/logger';
 import OrderHistory from './OrderHistory';
+import { AddressManager } from '../components/AddressManager';
 import { FaDownload, FaTrash } from 'react-icons/fa';
 const Profile: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
@@ -17,7 +18,7 @@ const Profile: React.FC = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'orders'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'addresses' | 'orders'>('profile');
   useEffect(() => {
     if (user) {
       refreshUser();
@@ -145,6 +146,16 @@ const Profile: React.FC = () => {
               }`}
             >
               Profil
+            </button>
+            <button
+              onClick={() => setActiveTab('addresses')}
+              className={`flex-1 px-6 py-4 font-medium transition-colors ${
+                activeTab === 'addresses'
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Adresses
             </button>
             <button
               onClick={() => setActiveTab('orders')}
@@ -295,6 +306,11 @@ const Profile: React.FC = () => {
                 </div>
               </div>
             </form>
+          </div>
+        )}
+        {activeTab === 'addresses' && (
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <AddressManager />
           </div>
         )}
         {activeTab === 'orders' && (
