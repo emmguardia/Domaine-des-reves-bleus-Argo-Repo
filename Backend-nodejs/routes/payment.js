@@ -487,7 +487,10 @@ router.post('/create-order', async (req, res) => {
       for (const item of cartItems) {
         // Ne jamais stocker de base64 dans order_items.image (colonne trop petite,
         // et inutile — l'admin récupère l'image depuis products via product_id).
-        const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : null;
+        // '' plutôt que null : la colonne order_items.image est NOT NULL.
+        // Le COALESCE(NULLIF(oi.image,''), p.image) dans admin/orders récupère
+        // l'image depuis la table products si oi.image est vide.
+        const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : '';
         await conn.query(
           `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -638,7 +641,10 @@ router.post('/record-failed', async (req, res) => {
       orderId = Number(result.insertId);
 
       for (const item of cartItems) {
-        const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : null;
+        // '' plutôt que null : la colonne order_items.image est NOT NULL.
+        // Le COALESCE(NULLIF(oi.image,''), p.image) dans admin/orders récupère
+        // l'image depuis la table products si oi.image est vide.
+        const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : '';
         await conn.query(
           `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

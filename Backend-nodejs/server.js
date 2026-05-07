@@ -228,7 +228,8 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 
           for (const item of cartItems) {
             // Jamais de base64 dans order_items.image — colonne trop petite.
-            const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : null;
+            // '' plutôt que null : NOT NULL constraint. COALESCE dans admin récupère p.image si vide.
+            const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : '';
             await conn.query(
               `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
