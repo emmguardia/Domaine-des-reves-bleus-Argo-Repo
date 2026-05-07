@@ -22,26 +22,39 @@ const OrderConfirmation: React.FC = () => {
     const paymentIntentId = searchParams.get('payment_intent');
     const initialRedirectStatus = searchParams.get('redirect_status');
     const manualSuccessStatus = searchParams.get('payment_intent_status');
+    const authHeaders = () => {
+      const token = secureStorage.getItem('token');
+      return {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+    };
+
     const createOrder = async (piId: string) => {
       try {
-        const token = secureStorage.getItem('token');
         await fetch(`${getApiUrl()}/api/payment/create-order`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
+          headers: authHeaders(),
           body: JSON.stringify({ paymentIntentId: piId })
         });
       } catch {
-        // Silencieux côté client — le webhook est en backup
+        // Silencieux — recover-order admin disponible en fallback
       }
     };
+
+    const recordFailed = async (piId: string) => {
+      try {
+        await fetch(`${getApiUrl()}/api/payment/record-failed`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ paymentIntentId: piId })
+        });
+      } catch {
+        // Silencieux
+      }
+    };
+
     const processVerification = async () => {
-      // Stripe fournit redirect_status directement dans l'URL après le paiement.
-      // On fait confiance à ce paramètre (signé par Stripe) sans rappeler le backend
-      // sur une route publique (IDOR supprimé). La commande est créée via create-order
-      // (route authentifiée) ; le webhook Stripe est le backup fiable côté serveur.
       const finalStatus = manualSuccessStatus === 'succeeded' ? 'succeeded' : (initialRedirectStatus || 'failed');
 
       if (isMounted) {
@@ -54,15 +67,19 @@ const OrderConfirmation: React.FC = () => {
             break;
           case 'processing':
             setMessage('Votre paiement est toujours en cours de traitement. Rechargez la page plus tard ou vérifiez vos emails.');
+            if (paymentIntentId) recordFailed(paymentIntentId);
             break;
           case 'requires_payment_method':
             setMessage('Le paiement a échoué. Veuillez essayer une autre méthode de paiement.');
+            if (paymentIntentId) recordFailed(paymentIntentId);
             break;
           case 'canceled':
             setMessage('Le paiement a été annulé.');
+            if (paymentIntentId) recordFailed(paymentIntentId);
             break;
           default:
             setMessage(`Statut du paiement : ${finalStatus}. Contactez le support si besoin.`);
+            if (paymentIntentId) recordFailed(paymentIntentId);
             break;
         }
         setIsLoading(false);
