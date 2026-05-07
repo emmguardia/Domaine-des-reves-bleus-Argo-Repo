@@ -437,10 +437,13 @@ router.post('/create-order', async (req, res) => {
       return res.status(400).json({ error: 'Panier introuvable' });
     }
 
-    // Récupérer les articles avec les vrais prix depuis la table products (anti-fraude)
+    // Récupérer les articles avec les vrais prix depuis la table products (anti-fraude).
+    // COALESCE(NULLIF(ci.image,''), p.image) : récupère l'image depuis products si
+    // le panier ne l'a pas stockée (images base64 strippées côté frontend pour éviter 413).
     const cartItems = await query(
       `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) as price,
-              ci.quantity, ci.image, ci.volume, ci.fragrance, ci.weight_grams
+              ci.quantity, COALESCE(NULLIF(ci.image, ''), p.image) as image,
+              ci.volume, ci.fragrance, ci.weight_grams
        FROM cart_items ci
        LEFT JOIN products p ON p.id = ci.item_id
        WHERE ci.cart_id = ?`,
@@ -609,7 +612,8 @@ router.post('/record-failed', async (req, res) => {
     if (carts && carts.length > 0) {
       cartItems = await query(
         `SELECT ci.item_id, ci.name, COALESCE(p.price, ci.price) as price,
-                ci.quantity, ci.image, ci.volume, ci.fragrance, ci.weight_grams
+                ci.quantity, COALESCE(NULLIF(ci.image, ''), p.image) as image,
+                ci.volume, ci.fragrance, ci.weight_grams
          FROM cart_items ci
          LEFT JOIN products p ON p.id = ci.item_id
          WHERE ci.cart_id = ?`,

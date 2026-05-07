@@ -161,8 +161,11 @@ export const validateCartItem = [
   body('items.*.name').trim().notEmpty().withMessage('Le nom de l\'item est requis'),
   body('items.*.price').isFloat({ min: 0 }).withMessage('Le prix doit être un nombre positif'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('La quantité doit être un entier positif'),
-  body('items.*.image').trim().notEmpty().withMessage('L\'image est requise'),
-  
+  // image optionnelle : si vide/absente, le backend fait COALESCE(ci.image, p.image)
+  // pour récupérer l'image depuis la table products. Cela évite d'envoyer
+  // des images base64 (parfois 200KB+) dans le corps du POST → plus de 413.
+  body('items.*.image').optional().trim(),
+
   handleValidationErrors
 ];
 
