@@ -24,6 +24,9 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     label: '',
     firstName: '',
@@ -62,9 +65,12 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    setFormSuccess(null);
+    setSubmitting(true);
     try {
       const token = secureStorage.getItem('token');
-      if (!token) return;
+      if (!token) { setFormError('Non connecté'); setSubmitting(false); return; }
       const url = editingAddress
         ? `${getApiUrl()}/api/addresses/${editingAddress.id}`
         : `${getApiUrl()}/api/addresses/`;
@@ -88,23 +94,35 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
         }),
       });
       if (response.ok) {
-        setShowForm(false);
-        setEditingAddress(null);
-        setFormData({
-          label: '',
-          firstName: '',
-          lastName: '',
-          phone: '',
-          address: '',
-          city: '',
-          postalCode: '',
-          country: 'France',
-          isDefault: false
-        });
+        setFormSuccess(editingAddress ? 'Adresse modifiée !' : 'Adresse ajoutée !');
+        setTimeout(() => {
+          setShowForm(false);
+          setEditingAddress(null);
+          setFormSuccess(null);
+          setFormData({
+            label: '',
+            firstName: '',
+            lastName: '',
+            phone: '',
+            address: '',
+            city: '',
+            postalCode: '',
+            country: 'France',
+            isDefault: false
+          });
+        }, 800);
         fetchAddresses();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        // Message d'erreur lisible — affiche les détails de validation si dispo
+        const detail = data?.details?.[0]?.message || data?.detail || data?.error || 'Erreur lors de l\'enregistrement';
+        setFormError(detail);
       }
     } catch (err) {
       logger.error('Erreur:', err);
+      setFormError('Erreur réseau, veuillez réessayer');
+    } finally {
+      setSubmitting(false);
     }
   };
   const handleDelete = async (id: number) => {
@@ -173,6 +191,16 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
           <h4 className="text-lg font-semibold mb-4">
             {editingAddress ? 'Modifier l\'adresse' : 'Nouvelle adresse'}
           </h4>
+          {formError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+              {formError}
+            </div>
+          )}
+          {formSuccess && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+              {formSuccess}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Libellé</label>
@@ -262,17 +290,21 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={submitting}
+                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
               >
-                {editingAddress ? 'Modifier' : 'Ajouter'}
+                {submitting ? 'Enregistrement...' : editingAddress ? 'Modifier' : 'Ajouter'}
               </button>
               <button
                 type="button"
+                disabled={submitting}
                 onClick={() => {
                   setShowForm(false);
                   setEditingAddress(null);
+                  setFormError(null);
+                  setFormSuccess(null);
                 }}
-                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
+                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors disabled:opacity-60"
               >
                 Annuler
               </button>

@@ -27,6 +27,8 @@ const Products: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedVolumes, setSelectedVolumes] = useState<{ [key: string]: string }>({});
   const [selectedFragrances, setSelectedFragrances] = useState<{ [key: string]: string }>({});
+  // Animation "Ajouté ✓" sur le bouton après ajout au panier
+  const [addedProductId, setAddedProductId] = useState<string | null>(null);
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -185,6 +187,9 @@ const Products: React.FC = () => {
       fragrance: selectedFragrance || null,
       weightGrams: finalWeight
     });
+    // Feedback visuel : bouton passe en "Ajouté ✓" pendant 1.5s
+    setAddedProductId(product.id);
+    setTimeout(() => setAddedProductId(null), 1500);
   };
   const getProductPrice = (product: Product): number => {
     if (product.volumes && selectedVolumes[product.id]) {
@@ -338,18 +343,44 @@ const Products: React.FC = () => {
                     <div className="text-2xl font-bold text-blue-600">
                       {getProductPrice(product).toFixed(2)} €
                     </div>
-                    <button
+                    <motion.button
                       onClick={() => handleAddToCart(product)}
-                      disabled={product.stock === 0}
-                      className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                      disabled={product.stock === 0 || addedProductId === product.id}
+                      whileTap={product.stock !== 0 ? { scale: 0.92 } : {}}
+                      className={`px-4 py-2 rounded-lg transition-all flex items-center space-x-2 ${
                         product.stock === 0
                           ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                          : addedProductId === product.id
+                          ? 'bg-green-500 text-white'
                           : 'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
                     >
-                      <FaShoppingCart className="w-4 h-4" />
-                      <span>{product.stock === 0 ? 'Rupture' : 'Ajouter'}</span>
-                    </button>
+                      <AnimatePresence mode="wait">
+                        {addedProductId === product.id ? (
+                          <motion.span
+                            key="added"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            className="flex items-center space-x-2"
+                          >
+                            <span>✓</span>
+                            <span>Ajouté !</span>
+                          </motion.span>
+                        ) : (
+                          <motion.span
+                            key="add"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            className="flex items-center space-x-2"
+                          >
+                            <FaShoppingCart className="w-4 h-4" />
+                            <span>{product.stock === 0 ? 'Rupture' : 'Ajouter'}</span>
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </motion.button>
                   </div>
                 </div>
               </motion.div>
