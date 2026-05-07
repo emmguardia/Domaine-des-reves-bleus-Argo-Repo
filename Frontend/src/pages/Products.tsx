@@ -245,7 +245,7 @@ const Products: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col"
               >
                 <div className="relative h-48 bg-gray-200">
                   {product.image ? (
@@ -287,7 +287,7 @@ const Products: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div className="p-4">
+                <div className="p-4 flex flex-col flex-1">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
                     {product.name}
                   </h3>
@@ -339,7 +339,7 @@ const Products: React.FC = () => {
                       )}
                     </div>
                   )}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mt-auto pt-3">
                     <div className="text-2xl font-bold text-blue-600">
                       {getProductPrice(product).toFixed(2)} €
                     </div>
