@@ -23,15 +23,12 @@ try {
     connectTimeout: 10000,
     reconnect: true,
     charset: 'utf8mb4',
-    // SSL activé en production pour chiffrer le trafic vers MariaDB externe.
-    // MARIADB_CA_CERT : certificat CA en base64 (optionnel, pour les self-signed).
-    // En dev, SSL désactivé pour simplifier le setup local.
-    ssl: process.env.NODE_ENV === 'production'
+    // SSL uniquement si MARIADB_CA_CERT est fourni (cert CA en base64).
+    // Sans cette variable, pas de SSL — compatible avec MariaDB sans SSL activé.
+    ssl: process.env.MARIADB_CA_CERT
       ? {
           rejectUnauthorized: process.env.MARIADB_SSL_REJECT_UNAUTHORIZED !== 'false',
-          ca: process.env.MARIADB_CA_CERT
-            ? Buffer.from(process.env.MARIADB_CA_CERT, 'base64').toString('utf8')
-            : undefined,
+          ca: Buffer.from(process.env.MARIADB_CA_CERT, 'base64').toString('utf8'),
         }
       : false,
     permitLocalInfile: false,
