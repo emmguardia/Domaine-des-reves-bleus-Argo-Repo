@@ -58,15 +58,9 @@ app.use(cors({
 }));
 
 app.use(express.json({
-  limit: '10mb',
-  verify: (req, _res, buf) => {
-    // Stripe webhook signature validation needs the raw request body bytes.
-    if (req.originalUrl === '/api/webhook') {
-      req.rawBody = buf;
-    }
-  }
+  limit: '100kb', // 10 MB était un vecteur DoS (body inflation attack)
 }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // Fichiers uploadés (images produits admin) — chemin sécurisé, pas d'exécution
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
@@ -89,9 +83,16 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Endpoint de scrape Prometheus — exposé uniquement à l'intérieur du cluster
-// (NetworkPolicy interdit l'accès depuis l'extérieur)
-app.get('/api/metrics', async (_req, res) => {
+// Endpoint de scrape Prometheus — protégé par token Bearer (defense-in-depth
+// en plus de la NetworkPolicy qui limite l'accès au namespace monitoring).
+app.get('/api/metrics', async (req, res) => {
+  const metricsToken = process.env.METRICS_TOKEN;
+  if (metricsToken) {
+    const auth = req.headers.authorization;
+    if (!auth || auth !== `Bearer ${metricsToken}`) {
+      return res.status(401).end('Unauthorized');
+    }
+  }
   try {
     res.set('Content-Type', register.contentType);
     res.end(await register.metrics());
@@ -100,6 +101,9 @@ app.get('/api/metrics', async (_req, res) => {
   }
 });
 
+// Le webhook Stripe utilise express.raw() — corps brut nécessaire pour la validation
+// de signature. Ce middleware est déclaré ICI (avant express.json global) pour
+// intercepter /api/webhook avant que le JSON parser ne consomme le body.
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -118,8 +122,8 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 
   try {
     const stripeInstance = getStripe();
-    const payload = req.rawBody || req.body;
-    event = stripeInstance.webhooks.constructEvent(payload, sig, webhookSecret);
+    // express.raw() garantit que req.body est le Buffer brut
+    event = stripeInstance.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
     console.error(`❌ [WEBHOOK] Signature invalide: ${err.message}`);
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
@@ -397,88 +401,55 @@ app.use('/api/user', apiRateLimiter, userRouter);
 app.use('/api/addresses', apiRateLimiter, addressesRouter);
 app.use('/api/payment', apiRateLimiter, paymentRouter);
 app.use('/api/admin', apiRateLimiter, adminRouter);
-app.use('/api/email', emailRouter);
+app.use('/api/email', publicRateLimiter, emailRouter);
 
-app.get('/api/get-payment-status', publicRateLimiter, async (req, res) => {
+// Route /api/get-payment-status supprimée (IDOR — publique sans auth).
+// Utiliser /api/payment/get-payment-status qui est protégée par verifyToken.
+
+// Sitemap dynamique — inclut les pages statiques + toutes les pages produits actives
+// depuis la DB. Le lastmod utilise la vraie date de mise à jour du produit.
+app.get('/sitemap.xml', publicRateLimiter, async (req, res) => {
+  const BASE = 'https://domainedesrevesbleus.eu';
+  const staticPages = [
+    { loc: '/',                            changefreq: 'weekly',  priority: '1.0', lastmod: null },
+    { loc: '/products',                    changefreq: 'weekly',  priority: '0.9', lastmod: null },
+    { loc: '/services',                    changefreq: 'monthly', priority: '0.8', lastmod: null },
+    { loc: '/contact',                     changefreq: 'monthly', priority: '0.7', lastmod: null },
+    { loc: '/mentions-legales',            changefreq: 'yearly',  priority: '0.3', lastmod: null },
+    { loc: '/cgv',                         changefreq: 'yearly',  priority: '0.3', lastmod: null },
+    { loc: '/politique-de-confidentialite',changefreq: 'yearly',  priority: '0.3', lastmod: null },
+  ];
+
+  let products = [];
   try {
-    const { payment_intent } = req.query;
-
-    if (!payment_intent || !payment_intent.startsWith('pi_')) {
-      return res.status(400).json({
-        error: 'Erreur',
-        detail: 'Format de payment_intent invalide'
-      });
-    }
-
-    try {
-      const paymentIntent = await getStripe().paymentIntents.retrieve(payment_intent);
-      res.json({ status: paymentIntent.status });
-    } catch (stripeError) {
-      console.error('Erreur Stripe:', stripeError);
-      return res.status(500).json({
-        error: 'Erreur serveur',
-        detail: stripeError.message
-      });
-    }
-  } catch (error) {
-    console.error('Erreur lors de la récupération du statut:', error);
-    res.status(500).json({
-      error: 'Erreur serveur',
-      detail: 'Erreur lors de la récupération du statut'
-    });
+    products = await query(
+      'SELECT id, updated_at FROM products WHERE active = 1 ORDER BY id ASC'
+    );
+  } catch {
+    // En cas d'erreur DB, on génère quand même le sitemap statique
   }
-});
 
-app.get('/sitemap.xml', (req, res) => {
-  const today = new Date().toISOString().split('T')[0] + 'T10:00:00+00:00';
+  const toIso = (d) => d ? new Date(d).toISOString() : new Date().toISOString();
+
+  const urlEntry = ({ loc, changefreq, priority, lastmod }) => `
+  <url>
+    <loc>${BASE}${loc}</loc>
+    <lastmod>${toIso(lastmod)}</lastmod>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
+  </url>`;
+
+  const productEntries = products.map(p =>
+    urlEntry({ loc: `/products/${p.id}`, changefreq: 'weekly', priority: '0.8', lastmod: p.updated_at })
+  ).join('');
+
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  <url>
-    <loc>https://domainedesrevesbleus.eu/</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/products</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/services</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/contact</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/mentions-legales</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/cgv</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-  <url>
-    <loc>https://domainedesrevesbleus.eu/politique-de-confidentialite</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${staticPages.map(urlEntry).join('')}${productEntries}
 </urlset>`;
 
   res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
   res.send(sitemap);
 });
 

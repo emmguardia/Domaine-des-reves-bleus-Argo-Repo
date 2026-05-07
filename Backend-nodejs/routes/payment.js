@@ -32,49 +32,47 @@ router.post('/create-payment-intent', validateCreatePaymentIntent, async (req, r
       });
     }
 
-    // Vérifier que l'utilisateur a un panier avec des items
-    const carts = await query(
-      'SELECT id FROM carts WHERE user_id = ?',
-      [userId]
-    );
+    // SELECT FOR UPDATE : verrouille le panier le temps de la validation du montant
+    // pour éviter la TOCTOU (Time-of-Check Time-of-Use) : une deuxième requête ne peut
+    // pas modifier le panier entre le SELECT et la création du PaymentIntent.
+    let carts, cartItems;
+    await transaction(async (conn) => {
+      const cartRows = await conn.query(
+        'SELECT id FROM carts WHERE user_id = ? FOR UPDATE',
+        [userId]
+      );
+      if (!cartRows || cartRows.length === 0) {
+        throw Object.assign(new Error('Panier vide'), { statusCode: 400 });
+      }
+      carts = cartRows;
 
-    if (!carts || carts.length === 0) {
-      console.warn(`[PAYMENT-INTENT] Panier absent userId=${userId}`);
-      return res.status(400).json({
-        error: 'Erreur',
-        detail: 'Panier vide'
-      });
+      const items = await conn.query(
+        `SELECT ci.item_id, ci.quantity, COALESCE(p.price, ci.price) as unit_price
+         FROM cart_items ci
+         LEFT JOIN products p ON p.id = ci.item_id
+         WHERE ci.cart_id = ?`,
+        [carts[0].id]
+      );
+      if (!items || items.length === 0) {
+        throw Object.assign(new Error('Panier vide'), { statusCode: 400 });
+      }
+      cartItems = items;
+
+      // Validation du montant à l'intérieur du verrou
+      const expectedSubtotalCents = cartItems.reduce((sum, item) =>
+        sum + Math.round(parseFloat(item.unit_price) * 100) * Number(item.quantity), 0);
+      const expectedTotalCents = expectedSubtotalCents + Math.round((shippingCost || 0) * 100);
+      if (Math.abs(amount - expectedTotalCents) > 1) {
+        throw Object.assign(
+          new Error('Le montant ne correspond pas au contenu du panier'),
+          { statusCode: 400 }
+        );
+      }
+    });
+
+    if (!carts || !cartItems) {
+      return res.status(400).json({ error: 'Erreur', detail: 'Panier vide' });
     }
-
-    // Récupérer les articles avec les vrais prix depuis la table products
-    const cartItems = await query(
-      `SELECT ci.item_id, ci.quantity, COALESCE(p.price, ci.price) as unit_price
-       FROM cart_items ci
-       LEFT JOIN products p ON p.id = ci.item_id
-       WHERE ci.cart_id = ?`,
-      [carts[0].id]
-    );
-
-    if (!cartItems || cartItems.length === 0) {
-      console.warn(`[PAYMENT-INTENT] Panier vide userId=${userId}, cartId=${carts[0].id}`);
-      return res.status(400).json({
-        error: 'Erreur',
-        detail: 'Panier vide'
-      });
-    }
-
-    // Valider que le montant envoyé correspond au total réel en DB (anti-fraude)
-    const expectedSubtotalCents = cartItems.reduce((sum, item) =>
-      sum + Math.round(parseFloat(item.unit_price) * 100) * Number(item.quantity), 0);
-    const expectedTotalCents = expectedSubtotalCents + Math.round((shippingCost || 0) * 100);
-    if (Math.abs(amount - expectedTotalCents) > 1) {
-      console.warn(`[PAYMENT-INTENT] Montant frauduleux userId=${userId}, reçu=${amount}, attendu=${expectedTotalCents}`);
-      return res.status(400).json({
-        error: 'Erreur',
-        detail: 'Le montant ne correspond pas au contenu du panier'
-      });
-    }
-    console.log(`[PAYMENT-INTENT] Panier vérifié userId=${userId}, cartId=${carts[0].id}, items=${cartItems.length}, montant validé=${amount}cents`);
 
     const metadata = {
       userId: userId.toString()
@@ -160,7 +158,9 @@ router.post('/create-payment-intent', validateCreatePaymentIntent, async (req, r
       });
     }
   } catch (error) {
-    console.error('[PAYMENT-INTENT] Erreur lors de la création:', error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: 'Erreur', detail: error.message });
+    }
     res.status(500).json({
       error: 'Erreur serveur',
       detail: 'Erreur lors de la création de l\'intention de paiement'

@@ -4,11 +4,9 @@ node_modules
 *.md
 .env
 .env.*
-uploads
-scripts
-.npmrc
+src
+public
+*.config.*
 *.log
-*.test.js
-__tests__
 coverage
 .nyc_output
