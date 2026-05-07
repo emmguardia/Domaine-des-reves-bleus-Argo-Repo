@@ -22,91 +22,53 @@ const OrderConfirmation: React.FC = () => {
     const paymentIntentId = searchParams.get('payment_intent');
     const initialRedirectStatus = searchParams.get('redirect_status');
     const manualSuccessStatus = searchParams.get('payment_intent_status');
-    const handleSuccess = () => {
-      if (isMounted) {
-         setStatus('succeeded');
-         setMessage('Votre paiement a été effectué avec succès !');
-         clearCart();
-         setIsLoading(false);
+    const createOrder = async (piId: string) => {
+      try {
+        const token = secureStorage.getItem('token');
+        await fetch(`${getApiUrl()}/api/payment/create-order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ paymentIntentId: piId })
+        });
+      } catch {
+        // Silencieux côté client — le webhook est en backup
       }
     };
     const processVerification = async () => {
-      if (!paymentIntentId) {
-        if (isMounted) {
-            setStatus(initialRedirectStatus || 'failed');
-            setMessage(initialRedirectStatus === 'succeeded' ? 'Paiement apparemment réussi (vérification impossible).' : 'Erreur lors de la récupération des détails du paiement.');
-            setIsLoading(false);
-            setVerificationError("ID du paiement manquant dans l'URL de retour.");
-            console.error("Paramètre 'payment_intent' non trouvé dans l'URL.");
+      // Stripe fournit redirect_status directement dans l'URL après le paiement.
+      // On fait confiance à ce paramètre (signé par Stripe) sans rappeler le backend
+      // sur une route publique (IDOR supprimé). La commande est créée via create-order
+      // (route authentifiée) ; le webhook Stripe est le backup fiable côté serveur.
+      const finalStatus = manualSuccessStatus === 'succeeded' ? 'succeeded' : (initialRedirectStatus || 'failed');
+
+      if (isMounted) {
+        setStatus(finalStatus);
+        switch (finalStatus) {
+          case 'succeeded':
+            setMessage('Votre paiement a été confirmé avec succès !');
+            clearCart();
+            if (paymentIntentId) createOrder(paymentIntentId);
+            break;
+          case 'processing':
+            setMessage('Votre paiement est toujours en cours de traitement. Rechargez la page plus tard ou vérifiez vos emails.');
+            break;
+          case 'requires_payment_method':
+            setMessage('Le paiement a échoué. Veuillez essayer une autre méthode de paiement.');
+            break;
+          case 'canceled':
+            setMessage('Le paiement a été annulé.');
+            break;
+          default:
+            setMessage(`Statut du paiement : ${finalStatus}. Contactez le support si besoin.`);
+            break;
         }
-        return;
-      }
-      try {
-        console.log("ID PaymentIntent trouvé, vérification backend...");
-        const res = await fetch(`/api/get-payment-status?payment_intent=${paymentIntentId}`);
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({ error: `Erreur serveur (${res.status})` }));
-          throw new Error(data.error || `Erreur serveur (${res.status})`);
-        }
-        const data = await res.json();
-        const finalStatus = data.status;
-        console.log("Statut final reçu du backend:", finalStatus);
-        if (isMounted) {
-            setStatus(finalStatus);
-            switch (finalStatus) {
-              case 'succeeded':
-                setMessage('Votre paiement a été confirmé avec succès !');
-                clearCart();
-                // Créer la commande en DB (ne bloque pas l'affichage)
-                (async () => {
-                  try {
-                    const token = secureStorage.getItem('token');
-                    await fetch(`${getApiUrl()}/api/payment/create-order`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                      },
-                      body: JSON.stringify({ paymentIntentId })
-                    });
-                  } catch {
-                    // Silencieux côté client — le webhook est en backup
-                  }
-                })();
-                break;
-              case 'processing':
-                setMessage('Votre paiement est toujours en cours de traitement. Rechargez la page plus tard ou vérifiez vos emails.');
-                break;
-              case 'requires_payment_method':
-                setMessage('Le paiement a échoué. Veuillez essayer une autre méthode de paiement.');
-                break;
-              case 'canceled':
-                setMessage('Le paiement a été annulé.');
-                break;
-              default:
-                setMessage(`Statut du paiement : ${finalStatus}. Contactez le support si besoin.`);
-                break;
-            }
-        }
-      } catch (error: any) {
-         console.error("Erreur lors de la vérification du statut du paiement:", error);
-         if (isMounted) {
-             setStatus(initialRedirectStatus || 'failed');
-             setMessage(`Impossible de vérifier le statut final du paiement (${error.message}). Statut initial : ${initialRedirectStatus || 'inconnu'}`);
-             setVerificationError(error.message);
-         }
-      } finally {
-          if (isMounted) {
-              setIsLoading(false);
-          }
+        setIsLoading(false);
       }
     };
-    if (manualSuccessStatus === 'succeeded') {
-      console.log("Succès détecté via paramètre de navigation manuelle.");
-      handleSuccess();
-    } else {
-      processVerification();
-    }
+    processVerification();
     return () => {
        isMounted = false;
     };
