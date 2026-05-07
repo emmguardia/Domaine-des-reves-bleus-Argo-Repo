@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaCheckCircle, FaTimesCircle, FaSpinner } from 'react-icons/fa';
@@ -11,17 +11,25 @@ const OrderConfirmation: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const { clearCart } = useCart();
+  // Guard : on ne traite la confirmation qu'une seule fois, même si clearCart
+  // n'est pas stable (pas memoïsé avec useCallback dans le CartContext).
+  const hasProcessed = useRef(false);
+  const clearCartRef = useRef(clearCart);
+  useEffect(() => { clearCartRef.current = clearCart; }, [clearCart]);
+
   useEffect(() => {
+    // Bloque tout re-run ultérieur (ex: clearCart qui change de référence)
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
+
     let isMounted = true;
     setIsLoading(true);
     setVerificationError(null);
-    console.log("Paramètres reçus dans l'URL:");
-    for (let entry of searchParams.entries()) {
-       console.log(entry[0], '=', entry[1]);
-    }
+
     const paymentIntentId = searchParams.get('payment_intent');
     const initialRedirectStatus = searchParams.get('redirect_status');
     const manualSuccessStatus = searchParams.get('payment_intent_status');
+
     const authHeaders = () => {
       const token = secureStorage.getItem('token');
       return {
@@ -62,7 +70,7 @@ const OrderConfirmation: React.FC = () => {
         switch (finalStatus) {
           case 'succeeded':
             setMessage('Votre paiement a été confirmé avec succès !');
-            clearCart();
+            clearCartRef.current();
             if (paymentIntentId) createOrder(paymentIntentId);
             break;
           case 'processing':
@@ -89,7 +97,8 @@ const OrderConfirmation: React.FC = () => {
     return () => {
        isMounted = false;
     };
-  }, [searchParams, clearCart]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const renderIcon = () => {
     if (isLoading) return <FaSpinner className="animate-spin text-4xl text-gray-500 mb-4" />;
     switch (status) {
