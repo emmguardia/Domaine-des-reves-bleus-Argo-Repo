@@ -377,7 +377,7 @@ import productsRouter from './routes/products.js';
 import cartRouter from './routes/cart.js';
 import userRouter from './routes/user.js';
 import addressesRouter from './routes/addresses.js';
-import paymentRouter from './routes/payment.js';
+import paymentRouter, { startStalePendingOrdersCleanup } from './routes/payment.js';
 import adminRouter from './routes/admin.js';
 import emailRouter from './routes/email.js';
 
@@ -531,6 +531,9 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     health: `http://0.0.0.0:${PORT}/api/health`,
     metrics: `http://0.0.0.0:${PORT}/api/metrics`,
   }, '🚀 Serveur démarré avec succès');
+
+  // Nettoyage automatique des commandes PENDING expirées (> 24h)
+  startStalePendingOrdersCleanup();
 
   if (process.env.MARIADB_HOST && process.env.MARIADB_PASSWORD) {
     query('SELECT 1').then(() => {
