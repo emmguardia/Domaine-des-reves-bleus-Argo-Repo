@@ -167,7 +167,7 @@ function AdminOrders() {
         <p className="text-gray-600 mt-2">Gérez les commandes de vos clients</p>
       </motion.div>
       <div className="mb-6 flex flex-wrap gap-2">
-        {['all', 'paid', 'preparing', 'shipped', 'cancelled', 'failed'].map((status) => (
+        {['all', 'paid', 'preparing', 'shipped', 'delivered', 'failed'].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -177,7 +177,7 @@ function AdminOrders() {
                 : 'bg-white text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {status === 'all' ? 'Toutes (payées)' : (status === 'failed' ? 'Paiement échoué' : getStatusLabel(status))}
+            {status === 'all' ? 'Toutes' : (status === 'failed' ? 'Paiement échoué' : getStatusLabel(status))}
           </button>
         ))}
       </div>
@@ -216,6 +216,13 @@ function AdminOrders() {
                   return (
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
                       En attente de paiement
+                    </span>
+                  );
+                }
+                if (orderSt === 'cancelled') {
+                  return (
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                      Annulée / Paiement échoué
                     </span>
                   );
                 }
@@ -335,7 +342,7 @@ function AdminOrders() {
                     <span>Envoyer</span>
                   </button>
                 )}
-                {(getOrderStatus(order) === 'shipped' || getOrderStatus(order) === 'delivered') && (
+                {(['shipped', 'delivered', 'cancelled', 'pending'].includes(getOrderStatus(order))) && (
                   <button
                     onClick={() => deleteOrder(getOrderId(order))}
                     className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"

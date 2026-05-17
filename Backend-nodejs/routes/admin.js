@@ -419,12 +419,12 @@ router.get('/orders', async (req, res) => {
   try {
     const { status, paymentStatus } = req.query;
 
-    // Par défaut : toutes les commandes SAUF les 'pending' non-payées
-    // (pending = commande créée mais paiement non confirmé — flow 2 étapes)
+    // Par défaut : commandes actives uniquement (paid, preparing, shipped, delivered)
+    // 'pending' = non-payée (flow 2 étapes), 'cancelled' = annulée/échouée → dans "Paiement échoué"
     let sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
                       status, payment_status, created_at, updated_at, shipped_at
                FROM orders
-               WHERE status != 'pending'
+               WHERE status IN ('paid', 'preparing', 'shipped', 'delivered')
                ORDER BY created_at DESC`;
 
     const params = [];
@@ -439,11 +439,11 @@ router.get('/orders', async (req, res) => {
     }
 
     if (paymentStatus && String(paymentStatus).toLowerCase() === 'failed') {
-      // "Paiement échoué" = commandes pending non-payées + commandes avec paiement explicitement échoué
+      // "Paiement échoué" = pending (jamais payées) + cancelled (annulées) + paiements échoués
       sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
                     status, payment_status, created_at, updated_at, shipped_at
              FROM orders
-             WHERE status = 'pending'
+             WHERE status IN ('pending', 'cancelled')
                 OR LOWER(payment_status) IN ('failed', 'requires_payment_method', 'canceled')
              ORDER BY created_at DESC`;
     } else if (paymentStatus) {
