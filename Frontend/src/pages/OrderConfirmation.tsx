@@ -40,11 +40,22 @@ const OrderConfirmation: React.FC = () => {
 
     const createOrder = async (piId: string) => {
       try {
-        await fetch(`${getApiUrl()}/api/payment/create-order`, {
+        // Tenter d'abord confirm-order (commande PENDING déjà créée — nouveau flow 2 étapes)
+        const res = await fetch(`${getApiUrl()}/api/payment/confirm-order`, {
           method: 'POST',
           headers: authHeaders(),
           body: JSON.stringify({ paymentIntentId: piId })
         });
+        if (res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        // Fallback vers create-order si la commande n'existe pas encore (ancien flow)
+        if (res.status === 404 || data.fallback) {
+          await fetch(`${getApiUrl()}/api/payment/create-order`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ paymentIntentId: piId })
+          });
+        }
       } catch {
         // Silencieux — recover-order admin disponible en fallback
       }

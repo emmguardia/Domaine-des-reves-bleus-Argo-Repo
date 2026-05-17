@@ -664,4 +664,400 @@ router.post('/record-failed', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/payment/checkout/init
+ * Checkout 2 étapes — Étape 1.
+ * Valide le panier (SELECT FOR UPDATE), crée une commande PENDING avec les articles,
+ * crée le PaymentIntent Stripe, retourne { clientSecret, orderId }.
+ */
+router.post('/checkout/init', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { shippingInfo, pickupLocation, shippingCost: clientShippingCost } = req.body;
+
+    console.log(`[CHECKOUT-INIT] Début userId=${userId}, pickup=${pickupLocation || 'none'}`);
+
+    // Valider le lieu de retrait
+    if (pickupLocation && !['Arnas', 'Mezeria'].includes(pickupLocation)) {
+      return res.status(400).json({ error: 'Lieu de retrait invalide' });
+    }
+
+    const sanitize = (str, max = 255) =>
+      str && typeof str === 'string' ? str.trim().substring(0, max) : '';
+
+    // Valider les champs de livraison
+    if (!pickupLocation) {
+      if (!shippingInfo) {
+        return res.status(400).json({ error: 'Informations de livraison requises' });
+      }
+      for (const field of ['firstName', 'lastName', 'email', 'phone', 'address']) {
+        if (!shippingInfo[field]?.toString().trim()) {
+          return res.status(400).json({ error: `Champ requis manquant : ${field}` });
+        }
+      }
+    }
+
+    // Annuler les commandes PENDING existantes de cet utilisateur (retours arrière, abandons)
+    try {
+      const staleOrders = await query(
+        "SELECT id, payment_intent_id FROM orders WHERE user_id = ? AND status = 'pending'",
+        [userId]
+      );
+      for (const stale of staleOrders || []) {
+        await query("UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [stale.id]);
+        if (stale.payment_intent_id?.startsWith('pi_')) {
+          try {
+            await getStripe().paymentIntents.cancel(stale.payment_intent_id);
+          } catch (_) { /* PI peut déjà être annulé */ }
+        }
+        console.log(`[CHECKOUT-INIT] 🗑 Stale PENDING annulé orderId=${stale.id}`);
+      }
+    } catch (cleanErr) {
+      console.error(`[CHECKOUT-INIT] ⚠️ Erreur nettoyage stale orders:`, cleanErr.message);
+    }
+
+    // Valider le panier avec verrou anti-TOCTOU
+    let cartId, cartItems;
+    await transaction(async (conn) => {
+      const cartRows = await conn.query(
+        'SELECT id FROM carts WHERE user_id = ? FOR UPDATE',
+        [userId]
+      );
+      if (!cartRows || cartRows.length === 0) {
+        throw Object.assign(new Error('Panier vide'), { statusCode: 400 });
+      }
+      cartId = cartRows[0].id;
+
+      const items = await conn.query(
+        `SELECT ci.item_id, ci.name, ci.quantity,
+                COALESCE(p.price, ci.price) as unit_price,
+                COALESCE(NULLIF(ci.image, ''), p.image) as image,
+                ci.volume, ci.fragrance, ci.weight_grams
+         FROM cart_items ci
+         LEFT JOIN products p ON p.id = ci.item_id
+         WHERE ci.cart_id = ?`,
+        [cartId]
+      );
+      if (!items || items.length === 0) {
+        throw Object.assign(new Error('Panier vide'), { statusCode: 400 });
+      }
+      cartItems = items;
+    });
+
+    // Calcul des montants côté serveur
+    const subtotalCents = cartItems.reduce((sum, item) =>
+      sum + Math.round(parseFloat(item.unit_price) * 100) * Number(item.quantity), 0
+    );
+    // Frais de port : fournis par le client (calcul distance/poids côté frontend),
+    // plafonnés à 50 € comme garde-fou anti-abus.
+    const shippingEuros = pickupLocation
+      ? 0
+      : Math.min(50, Math.max(0, parseFloat(clientShippingCost) || 0));
+    const shippingCents = Math.round(shippingEuros * 100);
+    const totalCents = subtotalCents + shippingCents;
+
+    if (totalCents <= 0) {
+      return res.status(400).json({ error: 'Montant invalide' });
+    }
+
+    // Construire les metadata Stripe et l'adresse de livraison
+    const stripeMetadata = {
+      userId: userId.toString(),
+      ...(pickupLocation && { pickupLocation }),
+      ...(!pickupLocation && shippingInfo && {
+        firstName:  sanitize(shippingInfo.firstName, 100),
+        lastName:   sanitize(shippingInfo.lastName, 100),
+        email:      sanitize(shippingInfo.email),
+        phone:      sanitize(shippingInfo.phone, 20),
+        address:    sanitize(shippingInfo.address, 500),
+        city:       sanitize(shippingInfo.city, 100),
+        postalCode: sanitize(shippingInfo.postalCode, 10),
+        country:    sanitize(shippingInfo.country, 100) || 'France',
+      }),
+      ...(shippingCents > 0 && { shippingCost: shippingEuros.toFixed(2) }),
+    };
+
+    const shippingAddress = pickupLocation
+      ? { address: `Retrait sur place - ${pickupLocation}`, pickupLocation }
+      : {
+          firstName: sanitize(shippingInfo.firstName, 100),
+          lastName:  sanitize(shippingInfo.lastName, 100),
+          email:     sanitize(shippingInfo.email),
+          phone:     sanitize(shippingInfo.phone, 20),
+          address:   sanitize(shippingInfo.address, 500),
+          city:      sanitize(shippingInfo.city, 100),
+          postalCode: sanitize(shippingInfo.postalCode, 10),
+          country:   sanitize(shippingInfo.country, 100) || 'France',
+        };
+
+    // Créer le PaymentIntent Stripe
+    const stripeInstance = getStripe();
+    const paymentIntent = await stripeInstance.paymentIntents.create({
+      amount: totalCents,
+      currency: 'eur',
+      metadata: stripeMetadata,
+      automatic_payment_methods: { enabled: true, allow_redirects: 'always' },
+    });
+
+    // Créer la commande PENDING + les order_items en DB
+    let orderId;
+    await transaction(async (conn) => {
+      const orderResult = await conn.query(
+        `INSERT INTO orders (user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
+                            status, payment_status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'pending', 'pending', NOW(), NOW())`,
+        [userId, paymentIntent.id, (totalCents / 100).toFixed(2),
+         shippingEuros.toFixed(2), JSON.stringify(shippingAddress)]
+      );
+      orderId = orderResult.insertId;
+
+      for (const item of cartItems) {
+        const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : '';
+        await conn.query(
+          `INSERT INTO order_items (order_id, product_id, name, price, quantity, image, volume, fragrance, weight_grams)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [orderId, item.item_id || null, item.name, parseFloat(item.unit_price),
+           Number(item.quantity), imageForDb,
+           item.volume || null, item.fragrance || null, item.weight_grams || 100]
+        );
+      }
+    });
+
+    // Mettre à jour les metadata Stripe avec l'orderId (best effort)
+    try {
+      await stripeInstance.paymentIntents.update(paymentIntent.id, {
+        metadata: { ...stripeMetadata, orderId: orderId.toString() }
+      });
+    } catch (metaErr) {
+      console.error(`[CHECKOUT-INIT] ⚠️ Erreur update metadata Stripe:`, metaErr.message);
+    }
+
+    // Sauvegarder l'adresse en DB (non-bloquant)
+    if (!pickupLocation && shippingInfo) {
+      const fullAddress = sanitize(shippingInfo.address, 500);
+      query('SELECT id FROM addresses WHERE user_id = ? AND address = ? LIMIT 1', [userId, fullAddress])
+        .then(existing => {
+          if (!existing || existing.length === 0) {
+            return query(
+              `INSERT INTO addresses (user_id, label, first_name, last_name, phone, address, city, postal_code, country, is_default, created_at, updated_at)
+               VALUES (?, 'Livraison', ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW())`,
+              [userId, sanitize(shippingInfo.firstName, 100), sanitize(shippingInfo.lastName, 100),
+               sanitize(shippingInfo.phone, 20), fullAddress,
+               sanitize(shippingInfo.city, 100), sanitize(shippingInfo.postalCode, 10),
+               sanitize(shippingInfo.country, 100) || 'France']
+            );
+          }
+        })
+        .catch(err => console.error(`[CHECKOUT-INIT] ⚠️ Erreur save address:`, err.message));
+    }
+
+    // Snapshot de sécurité
+    logger.info({
+      event: 'ORDER_SNAPSHOT',
+      pi: paymentIntent.id,
+      orderId,
+      userId,
+      amountCents: totalCents,
+      shippingCostEuros: shippingEuros,
+      pickupLocation: pickupLocation || null,
+      items: cartItems.map(i => ({
+        id: i.item_id, name: i.name, qty: Number(i.quantity),
+        unitEuros: parseFloat(i.unit_price),
+        volume: i.volume || null, fragrance: i.fragrance || null,
+      })),
+    }, '📦 ORDER_SNAPSHOT (checkout/init)');
+
+    console.log(`✅ [CHECKOUT-INIT] orderId=${orderId}, pi=${paymentIntent.id}, total=${totalCents}cts, userId=${userId}`);
+    res.json({ clientSecret: paymentIntent.client_secret, orderId });
+
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: 'Erreur', detail: error.message });
+    }
+    console.error('[CHECKOUT-INIT] Erreur:', error);
+    res.status(500).json({ error: 'Erreur serveur', detail: error.message });
+  }
+});
+
+/**
+ * POST /api/payment/confirm-order
+ * Checkout 2 étapes — Étape 2.
+ * Après redirection Stripe réussie, confirme la commande PENDING → PAID.
+ * Idempotent : plusieurs appels sont sûrs (WHERE status='pending' évite le double-traitement).
+ */
+router.post('/confirm-order', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { paymentIntentId } = req.body;
+
+    console.log(`[CONFIRM-ORDER] Début userId=${userId}, pi=${paymentIntentId || 'missing'}`);
+
+    if (!paymentIntentId || !paymentIntentId.startsWith('pi_')) {
+      return res.status(400).json({ error: 'paymentIntentId invalide' });
+    }
+
+    // Récupérer la commande en DB
+    const orders = await query(
+      'SELECT id, status, payment_status, user_id, shipping_address FROM orders WHERE payment_intent_id = ?',
+      [paymentIntentId]
+    );
+    if (!orders || orders.length === 0) {
+      console.warn(`[CONFIRM-ORDER] Commande introuvable pi=${paymentIntentId} — fallback vers create-order`);
+      return res.status(404).json({ error: 'Commande introuvable', fallback: true });
+    }
+
+    const order = orders[0];
+
+    // Vérifier l'ownership
+    if (Number(order.user_id) !== userId) {
+      console.warn(`[CONFIRM-ORDER] Non autorisé userId=${userId}, order.user_id=${order.user_id}`);
+      return res.status(403).json({ error: 'Non autorisé' });
+    }
+
+    // Idempotence : commande déjà confirmée
+    if (order.status.toLowerCase() === 'paid') {
+      console.log(`[CONFIRM-ORDER] Déjà confirmé orderId=${order.id}`);
+      return res.json({ success: true, orderId: order.id, alreadyConfirmed: true });
+    }
+
+    // Vérifier le paiement via Stripe
+    const stripeInstance = getStripe();
+    const paymentIntent = await stripeInstance.paymentIntents.retrieve(paymentIntentId);
+
+    if (paymentIntent.metadata?.userId !== userId.toString()) {
+      console.warn(`[CONFIRM-ORDER] Mismatch userId Stripe userId=${userId}, pi.userId=${paymentIntent.metadata?.userId}`);
+      return res.status(403).json({ error: 'Non autorisé' });
+    }
+
+    if (paymentIntent.status !== 'succeeded') {
+      console.warn(`[CONFIRM-ORDER] Paiement non réussi status=${paymentIntent.status}, pi=${paymentIntentId}`);
+      // Marquer la commande comme échouée si le paiement est définitivement raté
+      if (['canceled', 'requires_payment_method'].includes(paymentIntent.status)) {
+        await query(
+          "UPDATE orders SET status = 'failed', payment_status = 'failed', updated_at = NOW() WHERE id = ? AND status = 'pending'",
+          [order.id]
+        );
+      }
+      return res.status(400).json({ error: 'Paiement non confirmé', status: paymentIntent.status });
+    }
+
+    // Confirmer la commande : PENDING → PAID (idempotent grâce au WHERE status='pending')
+    const updateResult = await query(
+      "UPDATE orders SET status = 'paid', payment_status = 'succeeded', updated_at = NOW() WHERE id = ? AND status = 'pending'",
+      [order.id]
+    );
+
+    if (updateResult.affectedRows === 0) {
+      // Déjà traité (webhook concurrent ou double-appel)
+      console.log(`[CONFIRM-ORDER] Aucune ligne mise à jour (déjà traitée) orderId=${order.id}`);
+      return res.json({ success: true, orderId: order.id, alreadyConfirmed: true });
+    }
+
+    // Vider le panier
+    try {
+      const carts = await query('SELECT id FROM carts WHERE user_id = ?', [userId]);
+      if (carts && carts.length > 0) {
+        await query('DELETE FROM cart_items WHERE cart_id = ?', [carts[0].id]);
+      }
+    } catch (cartErr) {
+      console.error(`[CONFIRM-ORDER] ⚠️ Erreur vider panier userId=${userId}:`, cartErr.message);
+    }
+
+    // Récupérer les items pour l'email
+    let orderItems = [];
+    try {
+      orderItems = await query(
+        `SELECT oi.name, COALESCE(p.price, oi.price) as price, oi.quantity,
+                COALESCE(NULLIF(oi.image,''), p.image) as image
+         FROM order_items oi
+         LEFT JOIN products p ON p.id = oi.product_id
+         WHERE oi.order_id = ?`,
+        [order.id]
+      );
+    } catch (itemsErr) {
+      console.error(`[CONFIRM-ORDER] ⚠️ Erreur récupération order_items:`, itemsErr.message);
+    }
+
+    const totalAmount  = paymentIntent.amount / 100;
+    const shippingCost = parseFloat(paymentIntent.metadata?.shippingCost || '0');
+    let shippingAddress = {};
+    try {
+      shippingAddress = JSON.parse(order.shipping_address || '{}');
+    } catch (_) {}
+
+    // Envoi emails (non-bloquant)
+    query('SELECT first_name, last_name, email, phone FROM users WHERE id = ?', [userId])
+      .then(async users => {
+        if (!users || users.length === 0) return;
+        const user = users[0];
+        try {
+          await sendOrderConfirmationEmail(user.email, {
+            firstName: user.first_name,
+            lastName:  user.last_name,
+            orderNumber: paymentIntentId,
+            orderDate:   new Date().toISOString(),
+            items: orderItems.map(i => ({ name: i.name, price: parseFloat(i.price), quantity: i.quantity, image: i.image })),
+            totalAmount, shippingCost, shippingAddress
+          });
+          await sendNewOrderNotificationEmail({
+            orderNumber:   paymentIntentId,
+            customerName:  `${user.first_name} ${user.last_name}`,
+            customerEmail: user.email,
+            customerPhone: user.phone,
+            items: orderItems.map(i => ({ name: i.name, price: parseFloat(i.price), quantity: i.quantity })),
+            totalAmount, shippingCost, shippingAddress,
+            paymentMethod: 'Stripe'
+          });
+          console.log(`📧 [CONFIRM-ORDER] Emails envoyés userId=${userId}, orderId=${order.id}`);
+        } catch (emailErr) {
+          console.error(`[CONFIRM-ORDER] ⚠️ Erreur envoi emails orderId=${order.id}:`, emailErr.message);
+        }
+      })
+      .catch(err => console.error(`[CONFIRM-ORDER] ⚠️ Erreur récupération user:`, err.message));
+
+    console.log(`✅ [CONFIRM-ORDER] Commande confirmée orderId=${order.id}, userId=${userId}, pi=${paymentIntentId}`);
+    res.json({ success: true, orderId: order.id });
+
+  } catch (error) {
+    console.error('[CONFIRM-ORDER] Erreur:', error);
+    res.status(500).json({ error: 'Erreur serveur', detail: error.message });
+  }
+});
+
+/**
+ * Nettoyage des commandes PENDING trop anciennes (> 24h).
+ * Lancé toutes les heures au démarrage du serveur.
+ */
+export const startStalePendingOrdersCleanup = () => {
+  const cleanup = async () => {
+    try {
+      const staleOrders = await query(
+        "SELECT id, payment_intent_id FROM orders WHERE status = 'pending' AND created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)"
+      );
+      if (!staleOrders || staleOrders.length === 0) return;
+
+      console.log(`[CLEANUP] 🗑 ${staleOrders.length} commande(s) PENDING expirée(s) à annuler`);
+      const stripe = getStripe();
+      for (const order of staleOrders) {
+        try {
+          await query("UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [order.id]);
+          if (order.payment_intent_id?.startsWith('pi_')) {
+            await stripe.paymentIntents.cancel(order.payment_intent_id).catch(() => {});
+          }
+          console.log(`[CLEANUP] ✅ Commande annulée orderId=${order.id}`);
+        } catch (err) {
+          console.error(`[CLEANUP] ⚠️ Erreur annulation orderId=${order.id}:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error('[CLEANUP] Erreur nettoyage stale orders:', err.message);
+    }
+  };
+
+  // Première exécution après 5 min, puis toutes les heures
+  setTimeout(cleanup, 5 * 60 * 1000);
+  setInterval(cleanup, 60 * 60 * 1000);
+  console.log('🧹 [CLEANUP] Nettoyage auto des commandes PENDING expirées activé');
+};
+
 export default router;
