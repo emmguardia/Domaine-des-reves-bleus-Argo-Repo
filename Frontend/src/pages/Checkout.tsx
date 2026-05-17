@@ -34,6 +34,17 @@ interface AddressValidation {
 interface CheckoutData {
   clientSecret: string;
   orderId: number;
+  amount: number;
+}
+
+interface SavedAddress {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  country: string;
 }
 
 // ─── Résumé du panier (colonne gauche, visible dans les 2 étapes) ──────────
@@ -124,9 +135,10 @@ const CartSummary: React.FC = () => {
 // ─── Étape 1 : Formulaire de livraison ────────────────────────────────────
 interface ShippingStepProps {
   onNext: (data: CheckoutData) => void;
+  prefillAddress?: SavedAddress | null;
 }
 
-const ShippingStep: React.FC<ShippingStepProps> = ({ onNext }) => {
+const ShippingStep: React.FC<ShippingStepProps> = ({ onNext, prefillAddress }) => {
   const {
     cartItems, cartTotal, shippingCost,
     shippingCalculation, isCalculatingShipping,
@@ -136,23 +148,34 @@ const ShippingStep: React.FC<ShippingStepProps> = ({ onNext }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState<FormData>({
-    firstName: user?.firstName || user?.name?.split(' ')[0] || '',
-    lastName:  user?.lastName  || user?.name?.split(' ').slice(1).join(' ') || '',
+  const [formData, setFormData] = useState<FormData>(() => ({
+    firstName: prefillAddress?.firstName || user?.firstName || user?.name?.split(' ')[0] || '',
+    lastName:  prefillAddress?.lastName  || user?.lastName  || user?.name?.split(' ').slice(1).join(' ') || '',
     email:     user?.email     || '',
-    phone:     user?.phone     || '',
-    address:   user?.defaultAddress || user?.address || '',
-    city:      '',
-    postalCode: '',
+    phone:     prefillAddress?.phone   || user?.phone || '',
+    address:   prefillAddress?.address || user?.defaultAddress || user?.address || '',
+    city:      prefillAddress?.city    || '',
+    postalCode: prefillAddress?.postalCode || '',
     deliveryInstructions: '',
-  });
+  }));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveAddressChecked, setSaveAddressChecked] = useState(false);
 
   useEffect(() => {
     if (!user) { navigate('/login?redirect=checkout'); return; }
     if (cartItems.length === 0 || cartTotal <= 0) navigate('/products');
   }, [user, cartItems.length, cartTotal, navigate]);
+
+  // Calcule les frais de port d'emblée si une adresse a été pré-remplie
+  const prefillCalcDone = useRef(false);
+  useEffect(() => {
+    if (prefillCalcDone.current) return;
+    if (!isPickup && prefillAddress?.address && prefillAddress.address.length > 10) {
+      prefillCalcDone.current = true;
+      calculateShippingForAddress(prefillAddress.address);
+    }
+  }, [isPickup, prefillAddress, calculateShippingForAddress]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -211,6 +234,7 @@ const ShippingStep: React.FC<ShippingStepProps> = ({ onNext }) => {
         body.pickupLocation = pickupLocation;
       } else {
         body.shippingInfo = shippingInfo;
+        body.saveAddress = saveAddressChecked;
       }
 
       const res = await fetch(`${getApiUrl()}/api/payment/checkout/init`, {
@@ -230,7 +254,11 @@ const ShippingStep: React.FC<ShippingStepProps> = ({ onNext }) => {
         throw new Error('Réponse invalide du serveur');
       }
 
-      onNext({ clientSecret: data.clientSecret, orderId: data.orderId });
+      onNext({
+        clientSecret: data.clientSecret,
+        orderId: data.orderId,
+        amount: typeof data.amount === 'number' ? data.amount : cartTotal,
+      });
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la création de la commande. Veuillez réessayer.');
       setIsSubmitting(false);
@@ -396,6 +424,21 @@ const ShippingStep: React.FC<ShippingStepProps> = ({ onNext }) => {
           />
         </div>
 
+        {/* Sauvegarder l'adresse pour les prochains paiements */}
+        {!isPickup && (
+          <label className="flex items-center gap-3 cursor-pointer p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <input
+              type="checkbox"
+              checked={saveAddressChecked}
+              onChange={e => setSaveAddressChecked(e.target.checked)}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700">
+              Sauvegarder cette adresse pour mes prochains paiements
+            </span>
+          </label>
+        )}
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
             ⚠️ {error}
@@ -425,15 +468,15 @@ const ShippingStep: React.FC<ShippingStepProps> = ({ onNext }) => {
 interface PaymentStepProps {
   clientSecret: string;
   orderId: number;
+  amount: number;
   onBack: () => void;
 }
 
-const PaymentForm: React.FC<{ clientSecret: string; orderId: number; onBack: () => void }> = ({
-  clientSecret, orderId, onBack
+const PaymentForm: React.FC<{ clientSecret: string; orderId: number; amount: number; onBack: () => void }> = ({
+  clientSecret, orderId, amount, onBack
 }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const { cartTotal, isCalculatingShipping } = useCart();
   const paymentElementRef = useRef<HTMLDivElement>(null);
   const [isPaymentElementMounted, setIsPaymentElementMounted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -513,7 +556,7 @@ const PaymentForm: React.FC<{ clientSecret: string; orderId: number; onBack: () 
           disabled={isProcessing || !stripe || !elements || !isPaymentElementMounted}
           className={`button-primary w-full ${(isProcessing || !stripe || !elements || !isPaymentElementMounted) ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          {isProcessing ? 'Traitement...' : `Payer ${cartTotal.toFixed(2)} €`}
+          {isProcessing ? 'Traitement...' : `Payer ${amount.toFixed(2)} €`}
         </button>
 
         <button
@@ -530,7 +573,7 @@ const PaymentForm: React.FC<{ clientSecret: string; orderId: number; onBack: () 
   );
 };
 
-const PaymentStep: React.FC<PaymentStepProps> = ({ clientSecret, orderId, onBack }) => {
+const PaymentStep: React.FC<PaymentStepProps> = ({ clientSecret, orderId, amount, onBack }) => {
   const appearance = {
     theme: 'stripe' as const,
     variables: {
@@ -552,7 +595,7 @@ const PaymentStep: React.FC<PaymentStepProps> = ({ clientSecret, orderId, onBack
 
   return (
     <Elements stripe={stripePromise} options={options}>
-      <PaymentForm clientSecret={clientSecret} orderId={orderId} onBack={onBack} />
+      <PaymentForm clientSecret={clientSecret} orderId={orderId} amount={amount} onBack={onBack} />
     </Elements>
   );
 };
@@ -567,6 +610,8 @@ const stripePromise = loadStripe(
 const CheckoutPage: React.FC = () => {
   const [step, setStep] = useState<1 | 2>(1);
   const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
+  const [prefillAddress, setPrefillAddress] = useState<SavedAddress | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(true);
   const { cartItems, cartTotal } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -575,6 +620,41 @@ const CheckoutPage: React.FC = () => {
     if (!user) { navigate('/login?redirect=checkout'); return; }
     if (cartItems.length === 0 || cartTotal <= 0) navigate('/products');
   }, [user, cartItems.length, cartTotal, navigate]);
+
+  // Reprise du checkout : on saute l'étape 1 si une commande PENDING existe et que
+  // le panier est strictement identique. Sinon on pré-remplit l'adresse sauvegardée.
+  const hasResumed = useRef(false);
+  useEffect(() => {
+    if (hasResumed.current) return;
+    if (!user || cartItems.length === 0) return;
+    hasResumed.current = true;
+
+    (async () => {
+      try {
+        const token = secureStorage.getItem('token');
+        const res = await fetch(`${getApiUrl()}/api/payment/checkout/resume`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.savedAddress) setPrefillAddress(data.savedAddress);
+          if (data.pendingOrder?.clientSecret && data.pendingOrder?.orderId) {
+            // Panier identique à une commande en attente → on saute directement au paiement
+            setCheckoutData({
+              clientSecret: data.pendingOrder.clientSecret,
+              orderId: data.pendingOrder.orderId,
+              amount: typeof data.pendingOrder.amount === 'number' ? data.pendingOrder.amount : cartTotal,
+            });
+            setStep(2);
+          }
+        }
+      } catch {
+        // Silencieux — on retombe simplement sur le flow normal (étape 1)
+      } finally {
+        setResumeLoading(false);
+      }
+    })();
+  }, [user, cartItems.length, cartTotal]);
 
   const handleNext = (data: CheckoutData) => {
     setCheckoutData(data);
@@ -615,14 +695,28 @@ const CheckoutPage: React.FC = () => {
 
           {/* Colonne droite : étape 1 ou 2 */}
           <AnimatePresence mode="wait">
-            {step === 1 ? (
-              <ShippingStep key="step1" onNext={handleNext} />
+            {resumeLoading ? (
+              <motion.div
+                key="resume-loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="bg-white p-6 rounded-2xl shadow-lg flex items-center justify-center min-h-[320px]"
+              >
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
+                  <p className="text-sm text-gray-500">Chargement de votre commande...</p>
+                </div>
+              </motion.div>
+            ) : step === 1 ? (
+              <ShippingStep key="step1" onNext={handleNext} prefillAddress={prefillAddress} />
             ) : (
               checkoutData && (
                 <PaymentStep
                   key="step2"
                   clientSecret={checkoutData.clientSecret}
                   orderId={checkoutData.orderId}
+                  amount={checkoutData.amount}
                   onBack={handleBack}
                 />
               )
