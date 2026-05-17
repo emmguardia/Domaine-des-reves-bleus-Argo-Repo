@@ -484,9 +484,7 @@ const PaymentForm: React.FC<{ clientSecret: string; orderId: number; onBack: () 
         </span>
       </h2>
 
-      <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-        ✅ Commande #{orderId} créée — finalisez votre paiement ci-dessous.
-      </div>
+
 
       <form onSubmit={handlePay} className="space-y-5">
         <div ref={paymentElementRef}>
