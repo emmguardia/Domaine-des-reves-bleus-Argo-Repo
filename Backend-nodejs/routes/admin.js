@@ -419,35 +419,37 @@ router.get('/orders', async (req, res) => {
   try {
     const { status, paymentStatus } = req.query;
 
-    let sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address, 
+    // Par défaut : toutes les commandes SAUF les 'pending' non-payées
+    // (pending = commande créée mais paiement non confirmé — flow 2 étapes)
+    let sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
                       status, payment_status, created_at, updated_at, shipped_at
-               FROM orders 
+               FROM orders
+               WHERE status != 'pending'
                ORDER BY created_at DESC`;
 
     const params = [];
 
     if (status) {
-      sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address, 
+      sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
                     status, payment_status, created_at, updated_at, shipped_at
-             FROM orders 
+             FROM orders
              WHERE LOWER(status) = LOWER(?)
              ORDER BY created_at DESC`;
       params.push(status);
-
-      if (String(status).toLowerCase() === 'pending') {
-        sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address, 
-                      status, payment_status, created_at, updated_at, shipped_at
-               FROM orders 
-               WHERE LOWER(status) IN ('pending', 'paid')
-               ORDER BY created_at DESC`;
-        params.length = 0;
-      }
     }
 
-    if (paymentStatus) {
-      sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address, 
+    if (paymentStatus && String(paymentStatus).toLowerCase() === 'failed') {
+      // "Paiement échoué" = commandes pending non-payées + commandes avec paiement explicitement échoué
+      sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
                     status, payment_status, created_at, updated_at, shipped_at
-             FROM orders 
+             FROM orders
+             WHERE status = 'pending'
+                OR LOWER(payment_status) IN ('failed', 'requires_payment_method', 'canceled')
+             ORDER BY created_at DESC`;
+    } else if (paymentStatus) {
+      sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
+                    status, payment_status, created_at, updated_at, shipped_at
+             FROM orders
              WHERE LOWER(payment_status) = LOWER(?)
              ORDER BY created_at DESC`;
       params.length = 0;

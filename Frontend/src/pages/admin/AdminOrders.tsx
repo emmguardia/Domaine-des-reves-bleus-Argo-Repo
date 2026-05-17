@@ -113,9 +113,10 @@ function AdminOrders() {
   };
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
       case 'paid':
         return 'bg-green-100 text-green-700';
+      case 'pending':
+        return 'bg-orange-100 text-orange-700';
       case 'preparing':
         return 'bg-blue-100 text-blue-700';
       case 'shipped':
@@ -131,8 +132,9 @@ function AdminOrders() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'paid':
-      case 'pending':
         return 'En attente';
+      case 'pending':
+        return 'Non payée';
       case 'preparing':
         return 'En préparation';
       case 'shipped':
@@ -142,7 +144,7 @@ function AdminOrders() {
       case 'cancelled':
         return 'Annulée';
       default:
-        return 'En attente';
+        return status;
     }
   };
   if (loading) {
@@ -164,8 +166,8 @@ function AdminOrders() {
         <h1 className="text-3xl font-bold text-gray-900">Gestion des Commandes</h1>
         <p className="text-gray-600 mt-2">Gérez les commandes de vos clients</p>
       </motion.div>
-      <div className="mb-6 flex space-x-2">
-        {['all', 'pending', 'preparing', 'shipped', 'cancelled', 'failed'].map((status) => (
+      <div className="mb-6 flex flex-wrap gap-2">
+        {['all', 'paid', 'preparing', 'shipped', 'cancelled', 'failed'].map((status) => (
           <button
             key={status}
             onClick={() => setFilter(status)}
@@ -175,7 +177,7 @@ function AdminOrders() {
                 : 'bg-white text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {status === 'all' ? 'Toutes' : (status === 'failed' ? 'Paiement échoué' : getStatusLabel(status))}
+            {status === 'all' ? 'Toutes (payées)' : (status === 'failed' ? 'Paiement échoué' : getStatusLabel(status))}
           </button>
         ))}
       </div>
@@ -207,13 +209,29 @@ function AdminOrders() {
               </span>
             </div>
             <div className="mb-4">
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                getPaymentStatus(order) === 'succeeded'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                {getPaymentStatus(order) === 'succeeded' ? 'Paiement validé' : 'Paiement échoué'}
-              </span>
+              {(() => {
+                const orderSt = getOrderStatus(order);
+                const paymentSt = getPaymentStatus(order);
+                if (orderSt === 'pending') {
+                  return (
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                      En attente de paiement
+                    </span>
+                  );
+                }
+                if (paymentSt === 'succeeded' || ['paid','preparing','shipped','delivered'].includes(orderSt)) {
+                  return (
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                      Paiement validé
+                    </span>
+                  );
+                }
+                return (
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                    Paiement échoué
+                  </span>
+                );
+              })()}
             </div>
             <div className="grid md:grid-cols-2 gap-6 mb-4">
               <div>
@@ -283,7 +301,7 @@ function AdminOrders() {
               <div className="flex space-x-2">
                 {getOrderStatus(order) === 'preparing' && (
                   <button
-                    onClick={() => updateOrderStatus(getOrderId(order), 'pending')}
+                    onClick={() => updateOrderStatus(getOrderId(order), 'paid')}
                     className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center space-x-2"
                   >
                     <FaArrowLeft className="w-4 h-4" />
@@ -299,7 +317,7 @@ function AdminOrders() {
                     <span>Revenir préparation</span>
                   </button>
                 )}
-                {(getOrderStatus(order) === 'pending' || getOrderStatus(order) === 'paid') && (
+                {getOrderStatus(order) === 'paid' && (
                   <button
                     onClick={() => updateOrderStatus(getOrderId(order), 'preparing')}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
