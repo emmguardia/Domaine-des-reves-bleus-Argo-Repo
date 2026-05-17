@@ -14,6 +14,47 @@ router.use(verifyToken);
 router.use(publicRateLimiter);
 
 /**
+ * Sauvegarde l'adresse de livraison comme adresse par défaut de l'utilisateur (upsert).
+ * - Déduplique sur le champ `address` : pas de nouvelle ligne si l'adresse existe déjà.
+ * - Ne garde qu'une seule adresse `is_default = 1` par utilisateur.
+ * Appelée uniquement quand l'utilisateur coche « sauvegarder mon adresse ».
+ */
+async function saveDefaultAddress(userId, info) {
+  const s = (str, max = 255) => (str && typeof str === 'string' ? str.trim().substring(0, max) : '');
+  const address = s(info.address, 500);
+  if (!address) return;
+  const firstName  = s(info.firstName, 100);
+  const lastName   = s(info.lastName, 100);
+  const phone      = s(info.phone, 20);
+  const city       = s(info.city, 100);
+  const postalCode = s(info.postalCode, 10);
+  const country    = s(info.country, 100) || 'France';
+
+  // Retirer le flag « défaut » des autres adresses de cet utilisateur
+  await query('UPDATE addresses SET is_default = 0 WHERE user_id = ?', [userId]);
+
+  const existing = await query(
+    'SELECT id FROM addresses WHERE user_id = ? AND address = ? LIMIT 1',
+    [userId, address]
+  );
+  if (existing && existing.length > 0) {
+    await query(
+      `UPDATE addresses
+         SET label = 'Livraison', first_name = ?, last_name = ?, phone = ?,
+             city = ?, postal_code = ?, country = ?, is_default = 1, updated_at = NOW()
+       WHERE id = ?`,
+      [firstName, lastName, phone, city, postalCode, country, existing[0].id]
+    );
+  } else {
+    await query(
+      `INSERT INTO addresses (user_id, label, first_name, last_name, phone, address, city, postal_code, country, is_default, created_at, updated_at)
+       VALUES (?, 'Livraison', ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
+      [userId, firstName, lastName, phone, address, city, postalCode, country]
+    );
+  }
+}
+
+/**
  * POST /api/payment/create-payment-intent
  * Crée une intention de paiement Stripe
  */
@@ -106,37 +147,8 @@ router.post('/create-payment-intent', validateCreatePaymentIntent, async (req, r
       metadata.pickupLocation = pickupLocation;
     }
 
-    // Sauvegarder l'adresse en DB immédiatement (avant Stripe) — comme ça elle est toujours là même si le paiement échoue
-    if (shippingInfo && !pickupLocation) {
-      try {
-        const existing = await query(
-          `SELECT id FROM addresses WHERE user_id = ? AND address = ? AND city = ? AND postal_code = ? LIMIT 1`,
-          [userId, shippingInfo.address?.trim() || '', shippingInfo.city?.trim() || '', shippingInfo.postalCode?.trim() || '']
-        );
-        if (!existing || existing.length === 0) {
-          await query(
-            `INSERT INTO addresses (user_id, label, first_name, last_name, phone, address, city, postal_code, country, is_default, created_at, updated_at)
-             VALUES (?, 'Livraison', ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW())`,
-            [
-              userId,
-              shippingInfo.firstName?.trim() || '',
-              shippingInfo.lastName?.trim() || '',
-              shippingInfo.phone?.trim() || '',
-              shippingInfo.address?.trim() || '',
-              shippingInfo.city?.trim() || '',
-              shippingInfo.postalCode?.trim() || '',
-              shippingInfo.country?.trim() || 'France'
-            ]
-          );
-          console.log(`[PAYMENT-INTENT] 📍 Adresse sauvegardée en DB userId=${userId}, city=${shippingInfo.city}`);
-        } else {
-          console.log(`[PAYMENT-INTENT] 📍 Adresse déjà connue userId=${userId}, id=${existing[0].id}`);
-        }
-      } catch (addrError) {
-        // Non-bloquant : on log mais on ne fait pas rater le paiement pour ça
-        console.error(`[PAYMENT-INTENT] ⚠️ Erreur sauvegarde adresse userId=${userId}:`, addrError.message);
-      }
-    }
+    // L'adresse n'est plus sauvegardée automatiquement ici (évitait des doublons dans la
+    // table addresses). La sauvegarde se fait à la demande via checkout/init (case à cocher).
 
     try {
       const paymentIntent = await stripeInstance.paymentIntents.create({
@@ -309,50 +321,8 @@ router.post('/save-shipping', async (req, res) => {
     const sanitize = (str, max = 255) =>
       str && typeof str === 'string' ? str.trim().substring(0, max) : '';
 
-    // --- Sauvegarde adresse en DB ---
-    if (shippingInfo && !pickupLocation) {
-      try {
-        const fullAddress = sanitize(shippingInfo.address, 500);
-
-        // Extraction code postal + ville depuis l'adresse complète
-        let postalCode = sanitize(shippingInfo.postalCode, 10);
-        let city = sanitize(shippingInfo.city, 100);
-        if (!postalCode) {
-          const m = fullAddress.match(/\b(\d{5})\b/);
-          if (m) postalCode = m[1];
-        }
-        if (!city && postalCode) {
-          const afterPostal = fullAddress.split(postalCode)[1] || '';
-          city = afterPostal.replace(/^[,\s]+/, '').split(/[,\s]/)[0] || '';
-        }
-
-        const existing = await query(
-          `SELECT id FROM addresses WHERE user_id = ? AND address = ? LIMIT 1`,
-          [userId, fullAddress]
-        );
-        if (!existing || existing.length === 0) {
-          await query(
-            `INSERT INTO addresses (user_id, label, first_name, last_name, phone, address, city, postal_code, country, is_default, created_at, updated_at)
-             VALUES (?, 'Livraison', ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW())`,
-            [
-              userId,
-              sanitize(shippingInfo.firstName, 100),
-              sanitize(shippingInfo.lastName, 100),
-              sanitize(shippingInfo.phone, 20),
-              fullAddress,
-              city,
-              postalCode,
-              sanitize(shippingInfo.country, 100) || 'France'
-            ]
-          );
-          console.log(`[SAVE-SHIPPING] 📍 Adresse sauvegardée userId=${userId}`);
-        } else {
-          console.log(`[SAVE-SHIPPING] 📍 Adresse déjà connue userId=${userId}`);
-        }
-      } catch (addrErr) {
-        console.error(`[SAVE-SHIPPING] ⚠️ Erreur save address userId=${userId}:`, addrErr.message);
-      }
-    }
+    // L'adresse n'est plus sauvegardée automatiquement ici (évitait des doublons dans la
+    // table addresses). La sauvegarde se fait à la demande via checkout/init (case à cocher).
 
     // --- Mise à jour metadata Stripe ---
     try {
@@ -665,6 +635,114 @@ router.post('/record-failed', async (req, res) => {
 });
 
 /**
+ * GET /api/payment/checkout/resume
+ * Reprise de checkout :
+ *  - si une commande PENDING existe ET correspond exactement au panier actuel
+ *    (mêmes articles + même sous-total) ET que son PaymentIntent est encore payable,
+ *    retourne { pendingOrder: { clientSecret, orderId, amount } } pour sauter à l'étape 2.
+ *  - retourne toujours l'adresse sauvegardée de l'utilisateur (pré-remplissage du formulaire).
+ */
+router.get('/checkout/resume', async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // --- Adresse sauvegardée (pré-remplissage) ---
+    let savedAddress = null;
+    try {
+      const addrRows = await query(
+        `SELECT first_name, last_name, phone, address, city, postal_code, country
+         FROM addresses WHERE user_id = ?
+         ORDER BY is_default DESC, updated_at DESC, created_at DESC LIMIT 1`,
+        [userId]
+      );
+      if (addrRows && addrRows.length > 0) {
+        const a = addrRows[0];
+        savedAddress = {
+          firstName:  a.first_name || '',
+          lastName:   a.last_name || '',
+          phone:      a.phone || '',
+          address:    a.address || '',
+          city:       a.city || '',
+          postalCode: a.postal_code || '',
+          country:    a.country || 'France',
+        };
+      }
+    } catch (addrErr) {
+      console.error('[CHECKOUT-RESUME] ⚠️ Erreur lecture adresse:', addrErr.message);
+    }
+
+    // --- Panier actuel ---
+    const cartRows = await query('SELECT id FROM carts WHERE user_id = ?', [userId]);
+    let cartItems = [];
+    if (cartRows && cartRows.length > 0) {
+      cartItems = await query(
+        `SELECT ci.item_id, ci.quantity, COALESCE(p.price, ci.price) AS unit_price
+         FROM cart_items ci
+         LEFT JOIN products p ON p.id = ci.item_id
+         WHERE ci.cart_id = ?`,
+        [cartRows[0].id]
+      );
+    }
+
+    // --- Commande PENDING la plus récente ---
+    let pendingOrder = null;
+    if (cartItems.length > 0) {
+      const pendingRows = await query(
+        `SELECT id, payment_intent_id, total_amount, shipping_cost
+         FROM orders WHERE user_id = ? AND status = 'pending'
+         ORDER BY created_at DESC LIMIT 1`,
+        [userId]
+      );
+      if (pendingRows && pendingRows.length > 0) {
+        const pending = pendingRows[0];
+        const orderItems = await query(
+          'SELECT product_id, quantity FROM order_items WHERE order_id = ?',
+          [pending.id]
+        );
+
+        // Empreinte articles (productId + quantité), insensible à l'ordre
+        const fingerprint = (arr, idKey) => arr
+          .map(i => `${i[idKey] == null ? 'null' : i[idKey]}:${Number(i.quantity)}`)
+          .sort()
+          .join('|');
+        const sameItems = fingerprint(cartItems, 'item_id') === fingerprint(orderItems, 'product_id');
+
+        // Comparaison du sous-total (protège contre un changement de prix produit)
+        const cartSubtotalCents = cartItems.reduce((sum, i) =>
+          sum + Math.round(parseFloat(i.unit_price) * 100) * Number(i.quantity), 0);
+        const orderSubtotalCents =
+          Math.round(parseFloat(pending.total_amount) * 100) -
+          Math.round(parseFloat(pending.shipping_cost || 0) * 100);
+
+        if (sameItems && cartSubtotalCents === orderSubtotalCents
+            && pending.payment_intent_id?.startsWith('pi_')) {
+          try {
+            const pi = await getStripe().paymentIntents.retrieve(pending.payment_intent_id);
+            const resumable = ['requires_payment_method', 'requires_confirmation', 'requires_action']
+              .includes(pi.status);
+            // Sécurité : le PaymentIntent doit bien appartenir à cet utilisateur
+            if (resumable && pi.metadata?.userId === String(userId) && pi.client_secret) {
+              pendingOrder = {
+                clientSecret: pi.client_secret,
+                orderId: Number(pending.id),
+                amount: parseFloat(pending.total_amount),
+              };
+            }
+          } catch (piErr) {
+            console.error('[CHECKOUT-RESUME] ⚠️ Erreur retrieve PI:', piErr.message);
+          }
+        }
+      }
+    }
+
+    res.json({ pendingOrder, savedAddress });
+  } catch (error) {
+    console.error('[CHECKOUT-RESUME] Erreur:', error.message);
+    res.status(500).json({ error: 'Erreur serveur', detail: 'Erreur lors de la reprise du checkout' });
+  }
+});
+
+/**
  * POST /api/payment/checkout/init
  * Checkout 2 étapes — Étape 1.
  * Valide le panier (SELECT FOR UPDATE), crée une commande PENDING avec les articles,
@@ -673,7 +751,7 @@ router.post('/record-failed', async (req, res) => {
 router.post('/checkout/init', async (req, res) => {
   try {
     const userId = req.user.id;
-    const { shippingInfo, pickupLocation, shippingCost: clientShippingCost } = req.body;
+    const { shippingInfo, pickupLocation, shippingCost: clientShippingCost, saveAddress } = req.body;
 
     console.log(`[CHECKOUT-INIT] Début userId=${userId}, pickup=${pickupLocation || 'none'}`);
 
@@ -832,22 +910,11 @@ router.post('/checkout/init', async (req, res) => {
       console.error(`[CHECKOUT-INIT] ⚠️ Erreur update metadata Stripe:`, metaErr.message);
     }
 
-    // Sauvegarder l'adresse en DB (non-bloquant)
-    if (!pickupLocation && shippingInfo) {
-      const fullAddress = sanitize(shippingInfo.address, 500);
-      query('SELECT id FROM addresses WHERE user_id = ? AND address = ? LIMIT 1', [userId, fullAddress])
-        .then(existing => {
-          if (!existing || existing.length === 0) {
-            return query(
-              `INSERT INTO addresses (user_id, label, first_name, last_name, phone, address, city, postal_code, country, is_default, created_at, updated_at)
-               VALUES (?, 'Livraison', ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW())`,
-              [userId, sanitize(shippingInfo.firstName, 100), sanitize(shippingInfo.lastName, 100),
-               sanitize(shippingInfo.phone, 20), fullAddress,
-               sanitize(shippingInfo.city, 100), sanitize(shippingInfo.postalCode, 10),
-               sanitize(shippingInfo.country, 100) || 'France']
-            );
-          }
-        })
+    // Sauvegarder l'adresse uniquement si l'utilisateur l'a explicitement demandé
+    // (case « sauvegarder mon adresse » cochée). Upsert dédoublonné — non-bloquant.
+    if (saveAddress === true && !pickupLocation && shippingInfo) {
+      saveDefaultAddress(userId, shippingInfo)
+        .then(() => console.log(`[CHECKOUT-INIT] 📍 Adresse sauvegardée userId=${userId}`))
         .catch(err => console.error(`[CHECKOUT-INIT] ⚠️ Erreur save address:`, err.message));
     }
 
@@ -868,7 +935,7 @@ router.post('/checkout/init', async (req, res) => {
     }, '📦 ORDER_SNAPSHOT (checkout/init)');
 
     console.log(`✅ [CHECKOUT-INIT] orderId=${orderId}, pi=${paymentIntent.id}, total=${totalCents}cts, userId=${userId}`);
-    res.json({ clientSecret: paymentIntent.client_secret, orderId });
+    res.json({ clientSecret: paymentIntent.client_secret, orderId, amount: totalCents / 100 });
 
   } catch (error) {
     if (error.statusCode) {
