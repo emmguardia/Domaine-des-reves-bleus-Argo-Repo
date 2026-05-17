@@ -53,6 +53,8 @@ function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const API_URL = getApiUrl();
   useEffect(() => {
     fetchOrders();
@@ -97,18 +99,20 @@ function AdminOrders() {
     }
   };
   const deleteOrder = async (orderId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) {
-      return;
-    }
+    setDeleteError(null);
     try {
       const response = await adminFetch(`${API_URL}/api/admin/orders/${orderId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
+        setConfirmDeleteId(null);
         fetchOrders();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setDeleteError(data.detail || `Erreur ${response.status}`);
       }
     } catch (error) {
-      console.error('Erreur lors de la suppression de la commande:', error);
+      setDeleteError('Erreur réseau lors de la suppression');
     }
   };
   const getStatusColor = (status: string) => {
@@ -343,13 +347,34 @@ function AdminOrders() {
                   </button>
                 )}
                 {(['shipped', 'delivered', 'cancelled', 'pending'].includes(getOrderStatus(order))) && (
-                  <button
-                    onClick={() => deleteOrder(getOrderId(order))}
-                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
-                  >
-                    <FaTimes className="w-4 h-4" />
-                    <span>Supprimer</span>
-                  </button>
+                  confirmDeleteId === getOrderId(order) ? (
+                    <div className="flex items-center gap-2">
+                      {deleteError && (
+                        <span className="text-xs text-red-600">{deleteError}</span>
+                      )}
+                      <span className="text-sm text-gray-700">Confirmer ?</span>
+                      <button
+                        onClick={() => deleteOrder(getOrderId(order))}
+                        className="bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                      >
+                        Oui, supprimer
+                      </button>
+                      <button
+                        onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}
+                        className="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setConfirmDeleteId(getOrderId(order)); setDeleteError(null); }}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                    >
+                      <FaTimes className="w-4 h-4" />
+                      <span>Supprimer</span>
+                    </button>
+                  )
                 )}
               </div>
             </div>
