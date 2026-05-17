@@ -809,7 +809,7 @@ router.post('/checkout/init', async (req, res) => {
         [userId, paymentIntent.id, (totalCents / 100).toFixed(2),
          shippingEuros.toFixed(2), JSON.stringify(shippingAddress)]
       );
-      orderId = orderResult.insertId;
+      orderId = Number(orderResult.insertId);
 
       for (const item of cartItems) {
         const imageForDb = (item.image && !item.image.startsWith('data:')) ? item.image : '';
