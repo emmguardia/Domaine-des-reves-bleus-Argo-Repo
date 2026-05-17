@@ -55,7 +55,7 @@ function AppContent() {
               <Route path="/register" element={<RegisterForm />} />
               <Route path="/reset-password" element={<ResetPasswordForm />} />
               <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-              <Route path="/order-confirmation" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
+              <Route path="/order-confirmation" element={<OrderConfirmation />} />
               <Route path="/products" element={<Products />} />
               <Route path="/services" element={<Services />} />
               <Route path="/contact" element={<Contact />} />

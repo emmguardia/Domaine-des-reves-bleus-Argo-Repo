@@ -429,7 +429,7 @@ app.get('/sitemap.xml', publicRateLimiter, async (req, res) => {
   let products = [];
   try {
     products = await query(
-      'SELECT id, updated_at FROM products WHERE active = 1 ORDER BY id ASC'
+      'SELECT id, updated_at FROM products WHERE (is_placeholder = 0 OR is_placeholder IS NULL) ORDER BY id ASC'
     );
   } catch {
     // En cas d'erreur DB, on génère quand même le sitemap statique
