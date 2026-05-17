@@ -646,31 +646,6 @@ router.get('/checkout/resume', async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // --- Adresse sauvegardée (pré-remplissage) ---
-    let savedAddress = null;
-    try {
-      const addrRows = await query(
-        `SELECT first_name, last_name, phone, address, city, postal_code, country
-         FROM addresses WHERE user_id = ?
-         ORDER BY is_default DESC, updated_at DESC, created_at DESC LIMIT 1`,
-        [userId]
-      );
-      if (addrRows && addrRows.length > 0) {
-        const a = addrRows[0];
-        savedAddress = {
-          firstName:  a.first_name || '',
-          lastName:   a.last_name || '',
-          phone:      a.phone || '',
-          address:    a.address || '',
-          city:       a.city || '',
-          postalCode: a.postal_code || '',
-          country:    a.country || 'France',
-        };
-      }
-    } catch (addrErr) {
-      console.error('[CHECKOUT-RESUME] ⚠️ Erreur lecture adresse:', addrErr.message);
-    }
-
     // --- Panier actuel ---
     const cartRows = await query('SELECT id FROM carts WHERE user_id = ?', [userId]);
     let cartItems = [];
@@ -686,9 +661,10 @@ router.get('/checkout/resume', async (req, res) => {
 
     // --- Commande PENDING la plus récente ---
     let pendingOrder = null;
+    let pendingAddress = null; // adresse de la commande en cours (pour le retour arrière)
     if (cartItems.length > 0) {
       const pendingRows = await query(
-        `SELECT id, payment_intent_id, total_amount, shipping_cost
+        `SELECT id, payment_intent_id, total_amount, shipping_cost, shipping_address
          FROM orders WHERE user_id = ? AND status = 'pending'
          ORDER BY created_at DESC LIMIT 1`,
         [userId]
@@ -727,11 +703,60 @@ router.get('/checkout/resume', async (req, res) => {
                 orderId: Number(pending.id),
                 amount: parseFloat(pending.total_amount),
               };
+              // Adresse exacte de cette commande PENDING — sert au retour arrière
+              // (étape 2 → étape 1), pour ne PAS afficher une autre adresse.
+              try {
+                const sa = typeof pending.shipping_address === 'string'
+                  ? JSON.parse(pending.shipping_address)
+                  : pending.shipping_address;
+                if (sa && !sa.pickupLocation && sa.address) {
+                  pendingAddress = {
+                    firstName:  sa.firstName || '',
+                    lastName:   sa.lastName || '',
+                    phone:      sa.phone || '',
+                    address:    sa.address || '',
+                    city:       sa.city || '',
+                    postalCode: sa.postalCode || '',
+                    country:    sa.country || 'France',
+                  };
+                }
+              } catch (_) { /* shipping_address illisible — ignoré */ }
             }
           } catch (piErr) {
             console.error('[CHECKOUT-RESUME] ⚠️ Erreur retrieve PI:', piErr.message);
           }
         }
+      }
+    }
+
+    // --- Adresse de pré-remplissage ---
+    // Priorité 1 : l'adresse de la commande PENDING en cours (retour arrière fiable).
+    // Priorité 2 : une adresse explicitement sauvegardée par l'utilisateur (is_default = 1).
+    //   → On ignore volontairement les anciennes lignes is_default = 0 (doublons hérités
+    //     de l'ancien enregistrement automatique, souvent mal parsées).
+    let savedAddress = pendingAddress;
+    if (!savedAddress) {
+      try {
+        const addrRows = await query(
+          `SELECT first_name, last_name, phone, address, city, postal_code, country
+           FROM addresses WHERE user_id = ? AND is_default = 1
+           ORDER BY updated_at DESC, created_at DESC LIMIT 1`,
+          [userId]
+        );
+        if (addrRows && addrRows.length > 0) {
+          const a = addrRows[0];
+          savedAddress = {
+            firstName:  a.first_name || '',
+            lastName:   a.last_name || '',
+            phone:      a.phone || '',
+            address:    a.address || '',
+            city:       a.city || '',
+            postalCode: a.postal_code || '',
+            country:    a.country || 'France',
+          };
+        }
+      } catch (addrErr) {
+        console.error('[CHECKOUT-RESUME] ⚠️ Erreur lecture adresse:', addrErr.message);
       }
     }
 
