@@ -617,6 +617,52 @@ router.put('/orders/:order_id/status', [
 });
 
 /**
+ * DELETE /api/admin/orders/:order_id
+ * Supprime une commande (uniquement les commandes non-payées ou annulées)
+ */
+router.delete('/orders/:order_id', [
+  param('order_id').isInt({ min: 1 }),
+  handleValidationErrors
+], async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.order_id);
+
+    const existingOrders = await query(
+      'SELECT id, status FROM orders WHERE id = ?',
+      [orderId]
+    );
+
+    if (!existingOrders || existingOrders.length === 0) {
+      return res.status(404).json({
+        error: 'Erreur',
+        detail: 'Commande non trouvée'
+      });
+    }
+
+    const order = existingOrders[0];
+    const deletableStatuses = ['pending', 'cancelled', 'shipped', 'delivered'];
+    if (!deletableStatuses.includes(String(order.status).toLowerCase())) {
+      return res.status(400).json({
+        error: 'Erreur',
+        detail: `Impossible de supprimer une commande avec le statut "${order.status}". Seules les commandes annulées, expédiées ou livrées peuvent être supprimées.`
+      });
+    }
+
+    // Supprimer les order_items en premier (contrainte FK), puis la commande
+    await query('DELETE FROM order_items WHERE order_id = ?', [orderId]);
+    await query('DELETE FROM orders WHERE id = ?', [orderId]);
+
+    res.json({ message: 'Commande supprimée avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la commande:', error);
+    res.status(500).json({
+      error: 'Erreur serveur',
+      detail: 'Erreur lors de la suppression de la commande'
+    });
+  }
+});
+
+/**
  * GET /api/admin/stats
  * Récupère les statistiques générales
  */
