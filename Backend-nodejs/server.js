@@ -245,9 +245,18 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
                 item.weight_grams || 100
               ]
             );
+            // Décrément du stock (uniquement si l'article est lié à un produit).
+            // L'idempotence est assurée par la contrainte UNIQUE sur payment_intent_id :
+            // si create-order a déjà inséré, l'INSERT plus haut a échoué et on n'arrive pas ici.
+            if (item.item_id) {
+              await conn.query(
+                'UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE id = ?',
+                [Number(item.quantity), Number(item.item_id)]
+              );
+            }
           }
 
-          console.log(`✅ [WEBHOOK] ${cartItems.length} order_items insérés orderId=${orderId}`);
+          console.log(`✅ [WEBHOOK] ${cartItems.length} order_items insérés + stock décrémenté orderId=${orderId}`);
           await conn.query('DELETE FROM cart_items WHERE cart_id = ?', [cart.id]);
           console.log(`🗑️  [WEBHOOK] Panier vidé cartId=${cart.id}`);
         });
