@@ -603,7 +603,10 @@ const PaymentStep: React.FC<PaymentStepProps> = ({ clientSecret, orderId, amount
 // ─── Page principale ───────────────────────────────────────────────────────
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
-  'pk_live_51S0NqqLafvKJFJWDvDXxF1vkA6ZnzQq1jOAYObg9sk65jD37CTOjky81HX7KNyGfis6bvosJBI8VRU1WDiFPralS00VXorEKFP',
+  // Clé publique Stripe TEST (fallback). Pour repasser en LIVE, remplacer par
+  // 'pk_live_51S0NqqLafvKJFJWDvDXxF1vkA6ZnzQq1jOAYObg9sk65jD37CTOjky81HX7KNyGfis6bvosJBI8VRU1WDiFPralS00VXorEKFP'
+  // et basculer aussi sk_live / webhook live dans le SealedSecret.
+  'pk_test_51S0NqzLCFEC5EW0HrU2Qr47tGeuGWQHUoKp072cU1ChIoNvPLvRUKhptTZPG4wLNO91o440mHDGBJhIixwdmhfyw000Jc8ABTn',
   { betas: [], locale: 'fr' }
 );
 
