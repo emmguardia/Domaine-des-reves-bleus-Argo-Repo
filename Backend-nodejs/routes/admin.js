@@ -741,28 +741,51 @@ router.get('/stats/advanced', async (req, res) => {
   try {
     const period = Math.max(3, Math.min(parseInt(req.query.period, 10) || 7, 365));
 
-    const revenueLast7 = await query(
-      `SELECT COALESCE(SUM(total_amount + shipping_cost), 0) AS total
+    // ── KPI cumulés (commandes payées, depuis toujours) ──
+    const totalsRow = await query(
+      `SELECT
+         COALESCE(SUM(total_amount + shipping_cost), 0) AS total_revenue,
+         COUNT(*) AS total_orders
+       FROM orders
+       WHERE LOWER(payment_status) = 'succeeded'`
+    );
+    const totalRevenue = Number(totalsRow?.[0]?.total_revenue || 0);
+    const totalOrders  = Number(totalsRow?.[0]?.total_orders || 0);
+    const averageBasket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    // ── Meilleur jour (date + CA) ──
+    const bestDayRows = await query(
+      `SELECT DATE(created_at) AS date,
+              COALESCE(SUM(total_amount + shipping_cost), 0) AS revenue
        FROM orders
        WHERE LOWER(payment_status) = 'succeeded'
-         AND created_at >= NOW() - INTERVAL 7 DAY`
+       GROUP BY DATE(created_at)
+       ORDER BY revenue DESC
+       LIMIT 1`
     );
-    const revenueLast30 = await query(
-      `SELECT COALESCE(SUM(total_amount + shipping_cost), 0) AS total
-       FROM orders
-       WHERE LOWER(payment_status) = 'succeeded'
-         AND created_at >= NOW() - INTERVAL 30 DAY`
+    const bestDay = bestDayRows?.[0]
+      ? { date: bestDayRows[0].date, revenue: Number(bestDayRows[0].revenue || 0) }
+      : null;
+
+    // ── Top 5 produits vendus (toutes commandes payées) ──
+    const topProductsRows = await query(
+      `SELECT oi.name,
+              SUM(oi.quantity)            AS qty,
+              SUM(oi.price * oi.quantity) AS revenue
+       FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
+       WHERE LOWER(o.payment_status) = 'succeeded'
+       GROUP BY oi.name
+       ORDER BY qty DESC, revenue DESC
+       LIMIT 5`
     );
-    const ordersLast7 = await query(
-      `SELECT COUNT(*) AS count
-       FROM orders
-       WHERE created_at >= NOW() - INTERVAL 7 DAY`
-    );
-    const ordersLast30 = await query(
-      `SELECT COUNT(*) AS count
-       FROM orders
-       WHERE created_at >= NOW() - INTERVAL 30 DAY`
-    );
+    const topProducts = (topProductsRows || []).map((p) => ({
+      name: p.name,
+      quantity: Number(p.qty || 0),
+      revenue: Number(p.revenue || 0)
+    }));
+
+    // ── Série journalière pour le graphique ──
     const dailyRevenue = await query(
       `SELECT DATE(created_at) AS date,
               COALESCE(SUM(total_amount + shipping_cost), 0) AS revenue
@@ -776,17 +799,18 @@ router.get('/stats/advanced', async (req, res) => {
 
     res.json({
       revenue: {
-        last7Days: Number(revenueLast7?.[0]?.total || 0),
-        last30Days: Number(revenueLast30?.[0]?.total || 0),
+        total: totalRevenue,
         daily: (dailyRevenue || []).map((row) => ({
           date: row.date,
           revenue: Number(row.revenue || 0)
         }))
       },
       orders: {
-        last7Days: Number(ordersLast7?.[0]?.count || 0),
-        last30Days: Number(ordersLast30?.[0]?.count || 0)
-      }
+        total: totalOrders
+      },
+      averageBasket,
+      bestDay,
+      topProducts
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des statistiques avancées:', error);
