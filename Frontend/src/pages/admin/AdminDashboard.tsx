@@ -63,11 +63,7 @@ function AdminDashboard() {
     );
   }
 
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 5  ? 'Bonsoir' :
-    hour < 12 ? 'Bonjour' :
-    hour < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const greeting = 'Bonjour Laurence';
 
   const today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
