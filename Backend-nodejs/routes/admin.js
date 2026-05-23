@@ -768,14 +768,20 @@ router.get('/stats/advanced', async (req, res) => {
       : null;
 
     // ── Top 5 produits vendus (toutes commandes payées) ──
+    // On groupe par product_id (clé stable) plutôt que par oi.name (snapshot du nom
+    // au moment de la commande) — sinon un renommage de produit crée 2 lignes.
+    // Le nom affiché est celui actuel du produit (products.name), ou le snapshot en
+    // dernier recours pour les items legacy sans product_id.
     const topProductsRows = await query(
-      `SELECT oi.name,
-              SUM(oi.quantity)            AS qty,
-              SUM(oi.price * oi.quantity) AS revenue
+      `SELECT oi.product_id,
+              COALESCE(MAX(p.name), MAX(oi.name)) AS name,
+              SUM(oi.quantity)                     AS qty,
+              SUM(oi.price * oi.quantity)          AS revenue
        FROM order_items oi
        JOIN orders o ON o.id = oi.order_id
+       LEFT JOIN products p ON p.id = oi.product_id
        WHERE LOWER(o.payment_status) = 'succeeded'
-       GROUP BY oi.name
+       GROUP BY oi.product_id
        ORDER BY qty DESC, revenue DESC
        LIMIT 5`
     );
