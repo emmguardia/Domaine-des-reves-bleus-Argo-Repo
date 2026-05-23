@@ -706,6 +706,18 @@ router.get('/stats', async (req, res) => {
       ['succeeded']
     );
 
+    // 5 dernières commandes payées (pour l'activité récente du dashboard)
+    const recentPaidOrders = await query(
+      `SELECT o.id, o.payment_intent_id, o.total_amount, o.shipping_cost,
+              o.status, o.created_at,
+              u.first_name, u.last_name
+       FROM orders o
+       LEFT JOIN users u ON u.id = o.user_id
+       WHERE LOWER(o.payment_status) = 'succeeded'
+       ORDER BY o.created_at DESC
+       LIMIT 5`
+    );
+
     const toNum = (v) => (v != null ? Number(v) : 0);
     res.json({
       products: {
@@ -722,7 +734,16 @@ router.get('/stats', async (req, res) => {
       revenue: {
         net: parseFloat(totalRevenueNet[0]?.total || totalRevenueNet[0]?.TOTAL || 0),
         gross: parseFloat(totalRevenueGross[0]?.total || totalRevenueGross[0]?.TOTAL || 0)
-      }
+      },
+      recentPaidOrders: (recentPaidOrders || []).map((o) => ({
+        id: o.id,
+        paymentIntentId: o.payment_intent_id || '',
+        totalAmount: parseFloat(o.total_amount || 0),
+        shippingCost: parseFloat(o.shipping_cost || 0),
+        status: o.status,
+        createdAt: o.created_at,
+        customerName: `${o.first_name || ''} ${o.last_name || ''}`.trim() || 'Client'
+      }))
     });
   } catch (error) {
     console.error('Erreur lors de la récupération des statistiques:', error);

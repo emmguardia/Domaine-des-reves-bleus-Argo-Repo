@@ -4,7 +4,7 @@ import { getApiUrl, adminFetch } from '../../utils/security';
 function AdminAdvancedStats() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState(7);
+  const [period, setPeriod] = useState(30);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const handlePeriodChange = (p: number) => {
