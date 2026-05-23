@@ -419,12 +419,13 @@ router.get('/orders', async (req, res) => {
   try {
     const { status, paymentStatus } = req.query;
 
-    // Par défaut : commandes actives uniquement (paid, preparing, shipped, delivered)
-    // 'pending' = non-payée (flow 2 étapes), 'cancelled' = annulée/échouée → dans "Paiement échoué"
+    // Par défaut "Toutes" : commandes à traiter uniquement (en attente + en préparation).
+    // Les commandes 'shipped'/'delivered' n'apparaissent que dans leurs onglets dédiés,
+    // 'pending' (non-payée) et 'cancelled' (échouée) vont dans "Paiement échoué".
     let sql = `SELECT id, user_id, payment_intent_id, total_amount, shipping_cost, shipping_address,
                       status, payment_status, created_at, updated_at, shipped_at
                FROM orders
-               WHERE status IN ('paid', 'preparing', 'shipped', 'delivered')
+               WHERE status IN ('paid', 'preparing')
                ORDER BY created_at DESC`;
 
     const params = [];
