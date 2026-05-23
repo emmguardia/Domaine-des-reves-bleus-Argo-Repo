@@ -302,12 +302,30 @@ function AdminOrders() {
                 </div>
               </div>
             </div>
-            <div className="flex justify-between items-center pt-4 border-t">
-              <div>
-                <p className="text-sm text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {(getTotalAmount(order) + getShippingCost(order)).toFixed(2)} €
-                </p>
+            <div className="flex justify-between items-end pt-4 border-t">
+              <div className="space-y-0.5">
+                {(() => {
+                  // On calcule le sous-total à partir des order_items (autoritaire et fiable
+                  // quelle que soit la convention stockée dans orders.total_amount).
+                  const subtotal = getItems(order).reduce(
+                    (s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0
+                  );
+                  const shipping = getShippingCost(order);
+                  const total = subtotal + shipping;
+                  return (
+                    <>
+                      <p className="text-sm text-gray-600">
+                        Sous-total : <span className="font-medium text-gray-900">{subtotal.toFixed(2)} €</span>
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Frais de port : <span className="font-medium text-gray-900">{shipping.toFixed(2)} €</span>
+                      </p>
+                      <p className="text-sm text-gray-600 pt-1">
+                        Total : <span className="text-2xl font-bold text-gray-900">{total.toFixed(2)} €</span>
+                      </p>
+                    </>
+                  );
+                })()}
               </div>
               <div className="flex space-x-2">
                 {getOrderStatus(order) === 'preparing' && (

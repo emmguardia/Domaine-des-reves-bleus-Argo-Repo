@@ -468,10 +468,20 @@ router.post('/create-order', async (req, res) => {
            Number(item.quantity), imageForDb,
            item.volume || null, item.fragrance || null, item.weight_grams || 100]
         );
+        // Décrément du stock (uniquement pour les articles liés à un produit existant).
+        // L'idempotence est garantie par la contrainte UNIQUE sur payment_intent_id :
+        // si le webhook a déjà créé la commande, l'INSERT plus haut a échoué et on n'arrive pas ici.
+        if (item.item_id) {
+          await conn.query(
+            'UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE id = ?',
+            [Number(item.quantity), Number(item.item_id)]
+          );
+        }
       }
 
       await conn.query('DELETE FROM cart_items WHERE cart_id = ?', [carts[0].id]);
     });
+    console.log(`📦 [CREATE-ORDER] Stock décrémenté pour ${cartItems.length} article(s) orderId=${orderId}`);
 
     console.log(`✅ [CREATE-ORDER] Commande créée orderId=${orderId}, userId=${userId}, pi=${paymentIntentId}`);
 
@@ -1033,17 +1043,40 @@ router.post('/confirm-order', async (req, res) => {
       return res.status(400).json({ error: 'Paiement non confirmé', status: paymentIntent.status });
     }
 
-    // Confirmer la commande : PENDING → PAID (idempotent grâce au WHERE status='pending')
-    const updateResult = await query(
-      "UPDATE orders SET status = 'paid', payment_status = 'succeeded', updated_at = NOW() WHERE id = ? AND status = 'pending'",
-      [order.id]
-    );
+    // Confirmer la commande : PENDING → PAID + décrément du stock dans la MÊME transaction.
+    // Idempotent : grâce au WHERE status='pending', un seul appel passe ; donc le stock
+    // n'est décrémenté qu'une seule fois par commande (pas de double-décrément en cas
+    // d'appel concurrent webhook + redirect).
+    let confirmed = false;
+    let decrementedCount = 0;
+    await transaction(async (conn) => {
+      const upd = await conn.query(
+        "UPDATE orders SET status = 'paid', payment_status = 'succeeded', updated_at = NOW() WHERE id = ? AND status = 'pending'",
+        [order.id]
+      );
+      if (upd.affectedRows === 0) return; // déjà traité — on sort sans rien faire
+      confirmed = true;
 
-    if (updateResult.affectedRows === 0) {
-      // Déjà traité (webhook concurrent ou double-appel)
+      // Décrément du stock pour chaque article lié à un produit existant
+      const items = await conn.query(
+        'SELECT product_id, quantity FROM order_items WHERE order_id = ? AND product_id IS NOT NULL',
+        [order.id]
+      );
+      for (const it of items || []) {
+        await conn.query(
+          'UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE id = ?',
+          [Number(it.quantity), Number(it.product_id)]
+        );
+      }
+      decrementedCount = items?.length || 0;
+    });
+
+    if (!confirmed) {
+      // Déjà traité (webhook concurrent ou double-appel) — on n'a rien décrémenté
       console.log(`[CONFIRM-ORDER] Aucune ligne mise à jour (déjà traitée) orderId=${order.id}`);
       return res.json({ success: true, orderId: order.id, alreadyConfirmed: true });
     }
+    console.log(`📦 [CONFIRM-ORDER] Stock décrémenté pour ${decrementedCount} produit(s) orderId=${order.id}`);
 
     // Vider le panier
     try {
