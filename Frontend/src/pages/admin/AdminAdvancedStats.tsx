@@ -62,36 +62,44 @@ function AdminAdvancedStats() {
           <FaDownload /> Exporter les commandes (CSV)
         </button>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Revenus</h2>
-          <div className="space-y-4">
-            <div>
-              <p className="text-gray-600 text-sm">7 derniers jours</p>
-              <p className="text-3xl font-bold text-green-600">
-                {stats?.revenue?.last7Days?.toFixed(2) || '0.00'} €
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">30 derniers jours</p>
-              <p className="text-3xl font-bold text-blue-600">
-                {stats?.revenue?.last30Days?.toFixed(2) || '0.00'} €
-              </p>
-            </div>
-          </div>
+      {/* KPI cumulés — toujours flatteurs car ils ne reculent pas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-lg p-5">
+          <p className="text-gray-500 text-xs uppercase tracking-wide font-semibold mb-2">Chiffre d'affaires total</p>
+          <p className="text-3xl font-bold text-green-600">
+            {(stats?.revenue?.total ?? 0).toFixed(2)} €
+          </p>
+          <p className="text-xs text-gray-400 mt-1">Depuis l'ouverture</p>
         </div>
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Commandes</h2>
-          <div className="space-y-4">
-            <div>
-              <p className="text-gray-600 text-sm">7 derniers jours</p>
-              <p className="text-3xl font-bold text-purple-600">{stats?.orders?.last7Days || 0}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">30 derniers jours</p>
-              <p className="text-3xl font-bold text-indigo-600">{stats?.orders?.last30Days || 0}</p>
-            </div>
-          </div>
+        <div className="bg-white rounded-xl shadow-lg p-5">
+          <p className="text-gray-500 text-xs uppercase tracking-wide font-semibold mb-2">Commandes payées</p>
+          <p className="text-3xl font-bold text-blue-600">{stats?.orders?.total ?? 0}</p>
+          <p className="text-xs text-gray-400 mt-1">Total cumulé</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-lg p-5">
+          <p className="text-gray-500 text-xs uppercase tracking-wide font-semibold mb-2">Panier moyen</p>
+          <p className="text-3xl font-bold text-purple-600">
+            {(stats?.averageBasket ?? 0).toFixed(2)} €
+          </p>
+          <p className="text-xs text-gray-400 mt-1">Par commande payée</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-lg p-5">
+          <p className="text-gray-500 text-xs uppercase tracking-wide font-semibold mb-2">Meilleure journée</p>
+          {stats?.bestDay ? (
+            <>
+              <p className="text-3xl font-bold text-indigo-600">
+                {Number(stats.bestDay.revenue ?? 0).toFixed(2)} €
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                {new Date(stats.bestDay.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-3xl font-bold text-gray-300">—</p>
+              <p className="text-xs text-gray-400 mt-1">À venir</p>
+            </>
+          )}
         </div>
       </div>
       <div className="bg-white rounded-xl shadow-lg p-6">
@@ -115,8 +123,15 @@ function AdminAdvancedStats() {
         </div>
         {(() => {
           const dailyData = stats?.revenue?.daily || [];
-          if (dailyData.length === 0) {
-            return <div className="h-80 flex items-center justify-center text-gray-500">Aucune donnée disponible</div>;
+          const hasRevenue = dailyData.some((d: any) => Number(d.revenue) > 0);
+          if (dailyData.length === 0 || !hasRevenue) {
+            return (
+              <div className="h-80 flex flex-col items-center justify-center text-gray-400 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border-2 border-dashed border-gray-200">
+                <div className="text-5xl mb-3">📊</div>
+                <p className="text-sm font-medium text-gray-600">Pas encore de ventes sur cette période</p>
+                <p className="text-xs text-gray-400 mt-1">Le graphique s'affichera dès la première commande payée</p>
+              </div>
+            );
           }
           const chartWidth = 800;
           const chartHeight = 300;
@@ -297,6 +312,56 @@ function AdminAdvancedStats() {
                   strokeWidth="2"
                 />
               </svg>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Top 5 produits vendus */}
+      <div className="bg-white rounded-xl shadow-lg p-6 mt-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">🏆 Top 5 des produits les plus vendus</h2>
+        {(() => {
+          const top = (stats?.topProducts || []) as Array<{ name: string; quantity: number; revenue: number }>;
+          if (top.length === 0) {
+            return (
+              <div className="py-8 text-center text-gray-400">
+                <div className="text-4xl mb-2">📦</div>
+                <p className="text-sm">Les produits stars apparaîtront ici dès vos premières ventes</p>
+              </div>
+            );
+          }
+          const maxQty = Math.max(...top.map(p => p.quantity), 1);
+          return (
+            <div className="space-y-3">
+              {top.map((p, i) => (
+                <div key={`${p.name}-${i}`} className="flex items-center gap-4">
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    i === 0 ? 'bg-yellow-100 text-yellow-700' :
+                    i === 1 ? 'bg-gray-200 text-gray-700' :
+                    i === 2 ? 'bg-orange-100 text-orange-700' :
+                    'bg-blue-50 text-blue-600'
+                  }`}>
+                    {i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <p className="font-medium text-gray-900 truncate pr-2">{p.name}</p>
+                      <p className="text-sm font-semibold text-green-600 whitespace-nowrap">{p.revenue.toFixed(2)} €</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full"
+                          style={{ width: `${(p.quantity / maxQty) * 100}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 whitespace-nowrap">
+                        {p.quantity} vendu{p.quantity > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           );
         })()}
