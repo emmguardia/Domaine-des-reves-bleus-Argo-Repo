@@ -1105,10 +1105,18 @@ router.post('/confirm-order', async (req, res) => {
 
     const totalAmount  = paymentIntent.amount / 100;
     const shippingCost = parseFloat(paymentIntent.metadata?.shippingCost || '0');
+    // shipping_address peut arriver soit comme string (TEXT) soit comme objet déjà
+    // parsé (colonne JSON MariaDB). On gère les deux cas — c'est pour ça que l'admin
+    // affichait l'adresse mais que les emails recevaient `{}` (JSON.parse(object) plante).
     let shippingAddress = {};
-    try {
-      shippingAddress = JSON.parse(order.shipping_address || '{}');
-    } catch (_) {}
+    const rawShipping = order.shipping_address;
+    if (rawShipping) {
+      if (typeof rawShipping === 'string') {
+        try { shippingAddress = JSON.parse(rawShipping); } catch (_) { /* string illisible */ }
+      } else if (typeof rawShipping === 'object') {
+        shippingAddress = rawShipping;
+      }
+    }
 
     // Envoi emails (non-bloquant)
     query('SELECT first_name, last_name, email, phone FROM users WHERE id = ?', [userId])
