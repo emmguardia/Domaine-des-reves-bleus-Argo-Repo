@@ -31,6 +31,42 @@ function generateJWTToken() {
   }
 }
 
+/**
+ * Construit une adresse de livraison lisible :
+ *  - si pickup : "Retrait sur place - Arnas/Mezeria"
+ *  - sinon : Prénom Nom / adresse / CP Ville / Pays
+ *  Les lignes vides sont automatiquement ignorées.
+ */
+function formatShippingAddress(addr) {
+  if (!addr) return 'Non renseignée';
+  if (typeof addr === 'string') return addr.trim() || 'Non renseignée';
+
+  const parts = [];
+
+  // Pickup en premier (cas particulier)
+  if (addr.pickupLocation) {
+    const name = [addr.firstName, addr.lastName].filter(Boolean).join(' ').trim();
+    if (name) parts.push(name);
+    parts.push(`Retrait sur place — ${addr.pickupLocation}`);
+    return parts.join('\n');
+  }
+
+  // Livraison classique
+  const name = [addr.firstName, addr.lastName].filter(Boolean).join(' ').trim();
+  if (name) parts.push(name);
+
+  const street = (addr.address || '').trim();
+  if (street) parts.push(street);
+
+  const cityLine = [addr.postalCode, addr.city].filter(v => v && String(v).trim()).join(' ').trim();
+  if (cityLine) parts.push(cityLine);
+
+  const country = (addr.country || '').trim();
+  if (country) parts.push(country);
+
+  return parts.length > 0 ? parts.join('\n') : 'Non renseignée';
+}
+
 async function sendEmailToService(templateId, toEmail, toName, variables = {}, subject = null) {
   try {
     const token = generateJWTToken();
@@ -98,19 +134,24 @@ export const sendPasswordResetEmail = async (userEmail, signedToken) => {
 };
 
 export const sendOrderConfirmationEmail = async (userEmail, orderData) => {
-  const toName = `${orderData.firstName} ${orderData.lastName}`;
-  
-  const orderItems = orderData.items.map(item => 
+  const toName = `${orderData.firstName} ${orderData.lastName}`.trim();
+
+  const orderItems = orderData.items.map(item =>
     `- ${item.name} x${item.quantity} - ${item.price.toFixed(2)}€`
   ).join('\n');
-  
-  // Formater le total
+
   const orderTotal = `Sous-total: ${(orderData.totalAmount - (orderData.shippingCost || 0)).toFixed(2)}€\nFrais de port: ${(orderData.shippingCost || 0).toFixed(2)}€\nTotal: ${orderData.totalAmount.toFixed(2)}€`;
-  
-  // Formater l'adresse de livraison
-  const shippingAddress = typeof orderData.shippingAddress === 'string' 
-    ? orderData.shippingAddress 
-    : `${orderData.shippingAddress.address || ''}\n${orderData.shippingAddress.postalCode || ''} ${orderData.shippingAddress.city || ''}\n${orderData.shippingAddress.country || 'France'}`;
+
+  // L'adresse stockée dans la commande peut ne PAS contenir le nom (firstName/lastName) ;
+  // on l'ajoute via les infos client (orderData.firstName / lastName) si nécessaire.
+  const baseAddr = typeof orderData.shippingAddress === 'object' && orderData.shippingAddress
+    ? orderData.shippingAddress
+    : {};
+  const shippingAddress = formatShippingAddress({
+    ...baseAddr,
+    firstName: baseAddr.firstName || orderData.firstName,
+    lastName:  baseAddr.lastName  || orderData.lastName,
+  });
 
   return await sendEmailToService('order-confirmation', userEmail, toName, {
     order_number: orderData.orderNumber || 'N/A',
@@ -144,18 +185,24 @@ export const sendContactConfirmationEmail = async (userEmail, contactData) => {
 export const sendNewOrderNotificationEmail = async (orderData) => {
   const adminEmail = process.env.ADMIN_EMAIL || 'domainedesrevesbleus@gmail.com';
   const toName = 'Administrateur';
-  
-  const orderItems = orderData.items.map(item => 
+
+  const orderItems = orderData.items.map(item =>
     `- ${item.name} x${item.quantity} - ${item.price.toFixed(2)}€`
   ).join('\n');
-  
-  // Formater le total
+
   const orderTotal = `Sous-total: ${(orderData.totalAmount - (orderData.shippingCost || 0)).toFixed(2)}€\nFrais de port: ${(orderData.shippingCost || 0).toFixed(2)}€\nTotal: ${orderData.totalAmount.toFixed(2)}€`;
-  
-  // Formater l'adresse de livraison
-  const shippingAddress = typeof orderData.shippingAddress === 'string' 
-    ? orderData.shippingAddress 
-    : `${orderData.shippingAddress.address || ''}\n${orderData.shippingAddress.postalCode || ''} ${orderData.shippingAddress.city || ''}\n${orderData.shippingAddress.country || 'France'}`;
+
+  // Inclut le nom client en première ligne de l'adresse si l'objet ne le porte pas déjà.
+  const baseAddr = typeof orderData.shippingAddress === 'object' && orderData.shippingAddress
+    ? orderData.shippingAddress
+    : {};
+  const [fallbackFirst, ...fallbackRest] = (orderData.customerName || '').split(/\s+/);
+  const fallbackLast = fallbackRest.join(' ');
+  const shippingAddress = formatShippingAddress({
+    ...baseAddr,
+    firstName: baseAddr.firstName || fallbackFirst || '',
+    lastName:  baseAddr.lastName  || fallbackLast  || '',
+  });
 
   return await sendEmailToService('new-order', adminEmail, toName, {
     order_number: orderData.orderNumber || 'N/A',
