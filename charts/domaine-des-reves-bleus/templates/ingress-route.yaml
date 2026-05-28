@@ -1,0 +1,20 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: drb-ingress
+  namespace: {{ include "drb.namespace" . }}
+  labels:
+    {{- include "drb.labels" . | nindent 4 }}
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: "Host(`domainedesrevesbleus.eu`) || Host(`www.domainedesrevesbleus.eu`)"
+      kind: Rule
+      services:
+        - name: domaine-des-reves-bleus-frontend-service
+          port: 80
+      middlewares:
+        - name: security-headers
+        - name: crowdsec-bouncer
+          namespace: kube-system
