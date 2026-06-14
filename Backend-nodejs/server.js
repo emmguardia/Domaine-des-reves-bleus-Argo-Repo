@@ -532,6 +532,9 @@ app.use((err, req, res, next) => {
   });
 });
 
+// En mode test (vitest/supertest), on n'ouvre pas de vrai port ni de handlers
+// de shutdown : Supertest instancie son propre serveur éphémère à partir de `app`.
+if (process.env.NODE_ENV !== 'test') {
 const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info({
     port: PORT,
@@ -576,5 +579,6 @@ const gracefulShutdown = (signal) => {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+}
 
 export default app;
