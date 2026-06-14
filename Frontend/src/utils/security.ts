@@ -23,10 +23,18 @@ export const getApiUrl = (): string => {
   }
   return 'http://localhost:8000';
 };
+// Détermine si une clé doit être encodée. Insensible à la casse : avant, le test
+// `key.includes('token')` laissait passer adminToken/authToken (T majuscule), qui
+// étaient donc stockés EN CLAIR au lieu d'être obfusqués.
+const isSensitiveKey = (key: string): boolean => {
+  const k = key.toLowerCase();
+  return k.includes('token') || k.includes('password') || k.includes('secret');
+};
+
 export const secureStorage = {
   setItem: (key: string, value: string): void => {
     try {
-      if (key.includes('token') || key.includes('password') || key.includes('secret')) {
+      if (isSensitiveKey(key)) {
         const encrypted = btoa(value);
         localStorage.setItem(key, encrypted);
       } else {
@@ -40,7 +48,7 @@ export const secureStorage = {
     try {
       const value = localStorage.getItem(key);
       if (!value) return null;
-      if (key.includes('token') || key.includes('password') || key.includes('secret')) {
+      if (isSensitiveKey(key)) {
         try {
           return atob(value);
         } catch {

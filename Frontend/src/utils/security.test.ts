@@ -35,11 +35,11 @@ describe('utils/security — secureStorage', () => {
     expect(secureStorage.getItem('lang')).toBe('fr');
   });
 
-  it('encode (base64) les clés sensibles (token/password/secret) puis les redécode', () => {
-    // La clé doit contenir 'token' en minuscules (le test est sensible à la casse côté code).
-    secureStorage.setItem('token', 'abc.def.ghi');
-    expect(localStorage.getItem('token')).not.toBe('abc.def.ghi'); // stocké encodé (base64)
-    expect(secureStorage.getItem('token')).toBe('abc.def.ghi');    // relu décodé
+  it('encode (base64) les clés sensibles, insensible à la casse (adminToken…)', () => {
+    // adminToken a un T majuscule : avant le fix il restait en clair. Régression gardée.
+    secureStorage.setItem('adminToken', 'abc.def.ghi');
+    expect(localStorage.getItem('adminToken')).not.toBe('abc.def.ghi'); // stocké encodé (base64)
+    expect(secureStorage.getItem('adminToken')).toBe('abc.def.ghi');    // relu décodé
   });
 
   it('removeItem supprime la clé', () => {
