@@ -51,7 +51,7 @@ interface SavedAddress {
 const CartSummary: React.FC = () => {
   const {
     cartItems, cartSubtotal, cartTotal,
-    shippingCost, shippingCalculation, isCalculatingShipping, isPickup
+    shippingCalculation, isCalculatingShipping, isPickup
   } = useCart();
 
   return (
@@ -259,8 +259,8 @@ const ShippingStep: React.FC<ShippingStepProps> = ({ onNext, prefillAddress }) =
         orderId: data.orderId,
         amount: typeof data.amount === 'number' ? data.amount : cartTotal,
       });
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de la création de la commande. Veuillez réessayer.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la création de la commande. Veuillez réessayer.');
       setIsSubmitting(false);
     }
   };
@@ -394,7 +394,7 @@ const ShippingStep: React.FC<ShippingStepProps> = ({ onNext, prefillAddress }) =
               }}
               placeholder="Commencez à taper votre adresse..."
               className="min-h-[50px]"
-              onSelect={(suggestion: any) => {
+              onSelect={(suggestion) => {
                 if (suggestion?.city) setFormData(prev => ({ ...prev, city: suggestion.city || '' }));
                 if (suggestion?.postalCode) setFormData(prev => ({ ...prev, postalCode: suggestion.postalCode || '' }));
               }}
@@ -473,7 +473,7 @@ interface PaymentStepProps {
 }
 
 const PaymentForm: React.FC<{ clientSecret: string; orderId: number; amount: number; onBack: () => void }> = ({
-  clientSecret, orderId, amount, onBack
+  amount, onBack
 }) => {
   const stripe = useStripe();
   const elements = useElements();

@@ -51,7 +51,7 @@ export const sendForgotPasswordEmail = async (data: ForgotPasswordEmailData): Pr
 
     logger.log('✅ Email de réinitialisation demandé avec succès');
     return { success: true, message: result.message || 'Un email de réinitialisation a été envoyé à votre adresse email.' };
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Erreur lors de la demande de réinitialisation:', error);
     return { success: false, message: 'Erreur lors de la demande de réinitialisation. Veuillez réessayer.' };
   }
@@ -104,7 +104,7 @@ export const sendOrderConfirmationEmail = async (data: OrderConfirmationEmailDat
 
     logger.log('✅ Email de confirmation de commande envoyé');
     return true;
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Erreur lors de l\'envoi de l\'email de confirmation:', error);
     return false;
   }
@@ -148,7 +148,7 @@ export const sendContactEmail = async (data: ContactEmailData): Promise<{ succes
 
     logger.log('✅ Email de contact envoyé avec succès');
     return { success: true, message: result.message || 'Votre message a été envoyé avec succès !' };
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Erreur lors de l\'envoi de l\'email de contact:', error);
     return { success: false, message: 'Une erreur est survenue lors de l\'envoi de votre message. Veuillez réessayer.' };
   }

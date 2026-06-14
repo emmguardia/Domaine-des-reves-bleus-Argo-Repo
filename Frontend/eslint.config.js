@@ -22,25 +22,11 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
-      // `any` est pervasif et intentionnel dans ce code : le bannir = risque inutile
-      // pour une règle de style. On le désactive (pas une faille de sécu).
-      '@typescript-eslint/no-explicit-any': 'off',
-      // Respecte la convention `_` (déjà utilisée pour « inutilisé volontaire ») et
-      // passe en warn : plus d'alertes Error « Security » pour du style.
+      // Convention `_` pour les arguments volontairement inutilisés (standard, pas du masquage).
       '@typescript-eslint/no-unused-vars': [
-        'warn',
-        {
-          argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_',
-          ignoreRestSiblings: true,
-        },
+        'error',
+        { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
-      // Catch vides intentionnels (best-effort) autorisés ; le reste de no-empty reste actif.
-      'no-empty': ['error', { allowEmptyCatch: true }],
-      // Conseils, pas des failles : on les garde en warn (visibles en dev, pas en alerte Error).
-      'no-useless-catch': 'warn',
-      'react-hooks/set-state-in-effect': 'warn',
     },
   }
 );

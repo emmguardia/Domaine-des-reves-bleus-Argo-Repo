@@ -41,8 +41,8 @@ function AdminLogin() {
       secureStorage.setItem('adminToken', data.token);
       secureStorage.setItem('adminUser', JSON.stringify(data.admin));
       navigate('/admin-panel/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de la connexion');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la connexion');
     } finally {
       setLoading(false);
     }

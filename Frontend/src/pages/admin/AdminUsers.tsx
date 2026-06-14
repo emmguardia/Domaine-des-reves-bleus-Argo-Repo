@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { FaTrash, FaUser } from 'react-icons/fa';
 import { getApiUrl, adminFetch } from '../../utils/security';
 import { logger } from '../../utils/logger';
@@ -16,7 +15,6 @@ interface User {
 function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const API_URL = getApiUrl();
   useEffect(() => {
     fetchUsers();

@@ -52,7 +52,7 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 const originalConsoleError = console.error;
-console.error = function(...args: any[]) {
+console.error = function(...args: unknown[]) {
   const message = args.join(' ');
   if (
     message.includes('r.stripe.com') ||
@@ -112,46 +112,6 @@ window.addEventListener('unhandledrejection', (event) => {
     return false;
   }
 });
-function waitForStyles(): Promise<void> {
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      document.body.classList.add('styles-loaded');
-      resolve();
-    }, 2000);
-    const markStylesLoaded = () => {
-      clearTimeout(timeout);
-      const stylesheets = Array.from(document.styleSheets);
-      const allLoaded = stylesheets.every(sheet => {
-        try {
-          return sheet.cssRules || sheet.rules;
-        } catch (e) {
-          return true;
-        }
-      });
-      if (allLoaded || document.readyState === 'complete') {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            document.body.classList.add('styles-loaded');
-            resolve();
-          });
-        });
-      } else {
-        setTimeout(markStylesLoaded, 50);
-      }
-    };
-    if (document.readyState === 'complete') {
-      markStylesLoaded();
-    } else if (document.readyState === 'interactive') {
-      window.addEventListener('load', markStylesLoaded);
-      setTimeout(markStylesLoaded, 500);
-    } else {
-      document.addEventListener('DOMContentLoaded', () => {
-        window.addEventListener('load', markStylesLoaded);
-        setTimeout(markStylesLoaded, 500);
-      });
-    }
-  });
-}
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   console.error('Root element not found!');

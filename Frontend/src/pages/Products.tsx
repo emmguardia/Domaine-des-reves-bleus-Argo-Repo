@@ -59,7 +59,7 @@ const Products: React.FC = () => {
           const data = await response.json();
           logger.log('Produits reçus:', data.length, 'produits');
           if (Array.isArray(data) && data.length > 0) {
-            const productsWithId = data.map((product: any) => ({
+            const productsWithId = data.map((product) => ({
               ...product,
               id: product._id || product.id
             }));
@@ -94,13 +94,14 @@ const Products: React.FC = () => {
           setError(`Erreur ${response.status}: ${response.statusText}`);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
+      const err = error instanceof Error ? error : new Error(String(error));
+      if (err.name === 'AbortError') {
         const errorMsg = 'Le serveur ne répond pas dans les temps (timeout 10s)';
         logger.error('Timeout:', errorMsg);
         setError(errorMsg);
-      } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      } else if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
         const errorMsg = 'Impossible de joindre le serveur. Vérifiez votre connexion.';
         logger.error('Erreur de connexion:', errorMsg);
         setError(errorMsg);

@@ -179,29 +179,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!passwordValidation.isValid) {
       throw new Error(JSON.stringify([passwordValidation.message]));
     }
-    try {
-      const response = await fetch(`${getApiUrl()}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(registrationData),
-      });
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        throw new Error('Réponse non-JSON reçue du serveur');
-      }
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(JSON.stringify(errorData));
-      }
-      const data = await response.json();
-      setUser(data);
-      secureStorage.setItem('user', JSON.stringify(data));
-      secureStorage.setItem('token', data.token);
-    } catch (error) {
-      throw error;
+    const response = await fetch(`${getApiUrl()}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(registrationData),
+    });
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      throw new Error('Réponse non-JSON reçue du serveur');
     }
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(JSON.stringify(errorData));
+    }
+    const data = await response.json();
+    setUser(data);
+    secureStorage.setItem('user', JSON.stringify(data));
+    secureStorage.setItem('token', data.token);
   };
   const logout = () => {
     logger.log('Déconnexion...');

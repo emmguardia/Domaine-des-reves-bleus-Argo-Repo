@@ -64,7 +64,7 @@ const Profile: React.FC = () => {
       await refreshUser();
       setMessage('Profil mis à jour !');
       setEditMode(false);
-    } catch (err) {
+    } catch {
       setError('Erreur lors de la mise à jour du profil');
     } finally {
       setLoading(false);
@@ -89,7 +89,7 @@ const Profile: React.FC = () => {
       }
       if (!res.ok) throw new Error('Erreur lors de la suppression');
       logout();
-    } catch (err) {
+    } catch {
       setError('Erreur lors de la suppression du compte');
     } finally {
       setLoading(false);

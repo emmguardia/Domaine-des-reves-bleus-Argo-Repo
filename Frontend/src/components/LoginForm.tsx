@@ -1,6 +1,6 @@
 import React, { useState, FormEvent } from 'react';
 import { motion } from 'framer-motion';
-import { FaUser, FaLock, FaEnvelope } from 'react-icons/fa';
+import { FaLock, FaEnvelope } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import ForgotPasswordForm from './ForgotPasswordForm';
@@ -41,7 +41,7 @@ const LoginForm: React.FC = () => {
         logger.log('Erreur de connexion');
         setError(result.error || 'Une erreur est survenue lors de la connexion');
       }
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Erreur lors de la connexion:', err);
       setError('Une erreur est survenue lors de la connexion');
     }

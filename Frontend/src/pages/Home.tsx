@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FaDog, FaCut, FaHeart, FaArrowRight, FaShoppingBag, FaPaw, FaStar } from 'react-icons/fa';
+import { FaCut, FaHeart, FaArrowRight, FaShoppingBag, FaPaw, FaStar } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import SEO from '../components/SEO';
 

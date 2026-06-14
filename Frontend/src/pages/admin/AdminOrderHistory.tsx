@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { getApiUrl, adminFetch } from '../../utils/security';
-import { logger } from '../../utils/logger';
 interface OrderItem {
   name: string;
   price: number;
