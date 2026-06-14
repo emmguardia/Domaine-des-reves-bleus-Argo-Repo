@@ -40,6 +40,7 @@ jobs:
         run: |
           echo '{"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json","runs":[{"tool":{"driver":{"name":"ESLint","rules":[]}},"results":[]}]}' > eslint-results.sarif
           npx eslint . \
+            --quiet \
             --format @microsoft/eslint-formatter-sarif \
             --output-file eslint-results.sarif || true
         working-directory: ./Frontend
