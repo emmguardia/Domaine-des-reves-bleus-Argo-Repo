@@ -11,6 +11,15 @@
   },
   "packageRules": [
     {
+      "description": "Images maison pinées par notre propre CI (commits 'pin images to digest') — Renovate ne doit pas les gérer",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": [
+        "ghcr.io/emmguardia/domaine-des-reves-bleus-back",
+        "ghcr.io/emmguardia/domaine-des-reves-bleus-front"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Patch + mineur : automerge si la CI est verte",
       "matchUpdateTypes": ["patch", "minor"],
       "automerge": true
