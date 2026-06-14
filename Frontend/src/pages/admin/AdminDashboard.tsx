@@ -19,8 +19,15 @@ interface RecentOrder {
   customerName: string;
 }
 
+interface DashboardStats {
+  recentPaidOrders?: RecentOrder[];
+  orders?: { pending?: number; preparing?: number; shipped?: number; total?: number };
+  products?: { total?: number; lowStock?: number; outOfStock?: number };
+  revenue?: { gross?: number; net?: number };
+}
+
 function AdminDashboard() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const API_URL = getApiUrl();
 

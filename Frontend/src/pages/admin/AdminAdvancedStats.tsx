@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaDownload } from 'react-icons/fa';
 import { getApiUrl, adminFetch } from '../../utils/security';
+interface AdvancedDailyRevenue { revenue: number; date: string; }
+interface AdvancedStats {
+  revenue?: { total?: number; daily?: AdvancedDailyRevenue[] };
+  orders?: { total?: number };
+  averageBasket?: number;
+  bestDay?: { revenue?: number; date: string };
+  topProducts?: Array<{ name: string; quantity: number; revenue: number }>;
+}
+
 function AdminAdvancedStats() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<AdvancedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -22,6 +31,7 @@ function AdminAdvancedStats() {
         setStats(data);
       }
     } catch (error) {
+      console.error('Erreur lors du chargement des stats avancées:', error);
     } finally {
       setLoading(false);
     }
@@ -40,6 +50,7 @@ function AdminAdvancedStats() {
         window.URL.revokeObjectURL(url);
       }
     } catch (error) {
+      console.error('Erreur lors de l\'export des commandes:', error);
     }
   };
   if (loading) {
@@ -123,7 +134,7 @@ function AdminAdvancedStats() {
         </div>
         {(() => {
           const dailyData = stats?.revenue?.daily || [];
-          const hasRevenue = dailyData.some((d: any) => Number(d.revenue) > 0);
+          const hasRevenue = dailyData.some((d) => Number(d.revenue) > 0);
           if (dailyData.length === 0 || !hasRevenue) {
             return (
               <div className="h-80 flex flex-col items-center justify-center text-gray-400 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border-2 border-dashed border-gray-200">
@@ -138,8 +149,8 @@ function AdminAdvancedStats() {
           const padding = { top: 40, right: 40, bottom: 60, left: 60 };
           const graphWidth = chartWidth - padding.left - padding.right;
           const graphHeight = chartHeight - padding.top - padding.bottom;
-          const maxRevenue = Math.max(...dailyData.map((d: any) => d.revenue), 1);
-          const minRevenue = Math.min(...dailyData.map((d: any) => d.revenue), 0);
+          const maxRevenue = Math.max(...dailyData.map((d) => d.revenue), 1);
+          const minRevenue = Math.min(...dailyData.map((d) => d.revenue), 0);
           const revenueRange = maxRevenue - minRevenue || 1;
           const yTicks = 5;
           const yStep = revenueRange / yTicks;
@@ -230,7 +241,7 @@ function AdminAdvancedStats() {
                     </g>
                   );
                 })}
-                {dailyData.map((day: any, index: number) => {
+                {dailyData.map((day, index: number) => {
                   const barHeight = getBarHeight(day.revenue);
                   const barX = getBarX(index);
                   const barY = padding.top + graphHeight - barHeight;

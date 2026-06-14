@@ -1,7 +1,11 @@
 import React from 'react';
 import { FaTruck, FaMapMarkerAlt, FaClock } from 'react-icons/fa';
+interface ShippingCalculation {
+  distanceKm: number;
+  estimatedDeliveryDays: number;
+}
 interface ShippingInfoProps {
-  shippingCalculation: any | null;
+  shippingCalculation: ShippingCalculation | null;
   isCalculating: boolean;
 }
 const ShippingInfo: React.FC<ShippingInfoProps> = ({ shippingCalculation, isCalculating }) => {

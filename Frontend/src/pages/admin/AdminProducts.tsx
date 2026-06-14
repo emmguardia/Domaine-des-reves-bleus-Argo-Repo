@@ -44,7 +44,7 @@ function AdminProducts() {
       if (response.ok) {
         const data = await response.json();
         // Extraire les noms des catégories
-        const categoryNames = data.map((cat: any) => cat.name).sort();
+        const categoryNames = data.map((cat) => cat.name).sort();
         setCategories(categoryNames);
       } else {
         logger.error('Erreur lors de la récupération des catégories:', response.status);
@@ -64,7 +64,7 @@ function AdminProducts() {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const data = await response.json();
-          const mappedProducts = data.map((product: any) => ({
+          const mappedProducts = data.map((product) => ({
             ...product,
             _id: product.id || product._id,
             id: product.id || product._id,
@@ -152,7 +152,7 @@ function AdminProducts() {
     setEditingProduct(product);
     const isPlaceholder = product.isPlaceholder !== undefined 
       ? product.isPlaceholder 
-      : (product as any).is_placeholder || false;
+      : (product as Product & { is_placeholder?: boolean }).is_placeholder || false;
     const categoryExists = categories.includes(product.category);
     setUseCustomCategory(!categoryExists);
     setFormData({

@@ -35,7 +35,7 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
           const results = await searchAddresses(cleanedQuery);
           setSuggestions(results);
           setIsOpen(results.length > 0);
-        } catch (error) {
+        } catch {
           setSuggestions([]);
           setIsOpen(false);
         } finally {

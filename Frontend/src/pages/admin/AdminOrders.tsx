@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaCheck, FaTruck, FaTimes, FaArrowLeft } from 'react-icons/fa';
 import { getApiUrl, adminFetch } from '../../utils/security';
-import { logger } from '../../utils/logger';
 interface OrderItem {
   name: string;
   price: number;
@@ -46,7 +45,6 @@ function AdminOrders() {
   const getPaymentIntentId = (order: Order) => String(order.paymentIntentId || order.payment_intent_id || '');
   const getCreatedAt = (order: Order) => order.createdAt || order.created_at || new Date().toISOString();
   const getItems = (order: Order) => Array.isArray(order.items) ? order.items : [];
-  const getTotalAmount = (order: Order) => Number(order.totalAmount ?? order.total_amount ?? 0);
   const getShippingCost = (order: Order) => Number(order.shippingCost ?? order.shipping_cost ?? 0);
   const getPaymentStatus = (order: Order) => String(order.paymentStatus || order.payment_status || '').toLowerCase();
   const getOrderStatus = (order: Order) => String(order.status || '').toLowerCase();
@@ -111,7 +109,7 @@ function AdminOrders() {
         const data = await response.json().catch(() => ({}));
         setDeleteError(data.detail || `Erreur ${response.status}`);
       }
-    } catch (error) {
+    } catch {
       setDeleteError('Erreur réseau lors de la suppression');
     }
   };

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Menu, X, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaDog } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import Cart from './Cart';
 import { useCart } from '../context/CartContext';
@@ -11,24 +10,7 @@ const Header: React.FC = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { user, logout } = useAuth();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { cartCount } = useCart();
-  // Badge pulse : on re-monte la key à chaque changement de cartCount
-  // → framer-motion re-joue l'animation initial→animate automatiquement
-  const [prevCartCount, setPrevCartCount] = useState(cartCount);
-  useEffect(() => {
-    setPrevCartCount(cartCount);
-  }, [cartCount]);
-  useEffect(() => {
-    const handleAuthStateChange = (event: CustomEvent) => {
-      setIsLoggedIn(!!event.detail);
-    };
-    window.addEventListener('authStateChanged', handleAuthStateChange as EventListener);
-    setIsLoggedIn(!!user);
-    return () => {
-      window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
-    };
-  }, [user]);
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
@@ -112,7 +94,7 @@ const Header: React.FC = () => {
                 </AnimatePresence>
               </button>
               <div className="hidden md:flex items-center space-x-3 xl:space-x-4">
-                {isLoggedIn && user ? (
+                {user ? (
                   <>
                     <span className="text-gray-600 text-sm xl:text-base hidden lg:inline">Bonjour, {user.firstName}</span>
                     <Link

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { getApiUrl, adminFetch } from '../../utils/security';
 import { logger } from '../../utils/logger';

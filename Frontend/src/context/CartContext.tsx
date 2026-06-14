@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useRef 
 import { useAuth } from './AuthContext';
 import axios from 'axios';
 import { sendOrderConfirmationEmail } from '../services/emailService';
-import { calculateShippingCost, calculateShippingCostFallback, validateDeliveryAddress } from '../services/shippingService';
+import { calculateShippingCost, calculateShippingCostFallback, validateDeliveryAddress, type ShippingCalculation } from '../services/shippingService';
 import { getApiUrl } from '../utils/security';
 import { secureStorage } from '../utils/security';
 import { logger } from '../utils/logger';
@@ -22,14 +22,14 @@ interface CartContextType {
   removeFromCart: (itemId: number, volume?: string | null) => void;
   updateQuantity: (itemId: number, quantity: number, volume?: string | null) => void;
   clearCart: () => void;
-  sendOrderConfirmation: (orderData: any) => Promise<boolean>;
+  sendOrderConfirmation: (orderData: { orderNumber?: string; shippingAddress?: string }) => Promise<boolean>;
   cartCount: number;
   cartSubtotal: number;
   shippingCost: number;
   cartTotal: number;
   deliveryAddress: string;
   setDeliveryAddress: (address: string) => void;
-  shippingCalculation: any | null;
+  shippingCalculation: ShippingCalculation | null;
   isCalculatingShipping: boolean;
   calculateShippingForAddress: (address: string) => Promise<void>;
   isPickup: boolean;
@@ -41,7 +41,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
-  const [shippingCalculation, setShippingCalculation] = useState<any | null>(null);
+  const [shippingCalculation, setShippingCalculation] = useState<ShippingCalculation | null>(null);
   const [isCalculatingShipping, setIsCalculatingShipping] = useState<boolean>(false);
   const [isPickup, setIsPickup] = useState<boolean>(false);
   const [pickupLocation, setPickupLocation] = useState<'Arnas' | 'Mezeria' | null>(null);
@@ -86,19 +86,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (response.data && response.data.items) {
             isUpdatingFromBackend.current = true;
-            const itemsWithWeights = response.data.items.map((item: any) => {
+            const itemsWithWeights = response.data.items.map((item) => {
               if (!item.weightGrams) {
                 console.warn(`Item ${item.id} (${item.name}) n'a pas de weightGrams, utilisation de 100g par défaut`);
                 return { ...item, weightGrams: 100 };
               }
               return item;
             });
-            const totalWeightGrams = itemsWithWeights.reduce((sum: number, item: any) => 
+            const totalWeightGrams = itemsWithWeights.reduce((sum: number, item) => 
               sum + (item.weightGrams || 100) * item.quantity, 0
             );
             if (import.meta.env.DEV) {
               console.log('Poids total du panier:', totalWeightGrams, 'grammes (', (totalWeightGrams / 1000).toFixed(2), 'kg)');
-              console.log('Détail des poids:', itemsWithWeights.map((item: any) => 
+              console.log('Détail des poids:', itemsWithWeights.map((item) => 
                 `${item.name}: ${item.weightGrams}g x ${item.quantity} = ${item.weightGrams * item.quantity}g`
               ));
             }
@@ -301,7 +301,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsCalculatingShipping(false);
     }
   };
-  const sendOrderConfirmation = async (orderData: any): Promise<boolean> => {
+  const sendOrderConfirmation = async (orderData: { orderNumber?: string; shippingAddress?: string }): Promise<boolean> => {
     if (!user) return false;
     try {
       // Le backend envoie déjà l'email via le webhook Stripe

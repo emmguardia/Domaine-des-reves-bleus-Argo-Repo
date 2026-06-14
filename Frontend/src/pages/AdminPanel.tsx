@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { getApiUrl } from '../utils/security';
 import { secureStorage } from '../utils/security';
 import {
   FaBox,
   FaShoppingCart,
   FaChartLine,
   FaSignOutAlt,
-  FaPlus,
-  FaEdit,
-  FaTrash,
-  FaCheck,
-  FaTimes,
-  FaTruck,
   FaHistory,
-  FaExclamationTriangle,
   FaUser,
   FaHome,
   FaEuroSign
@@ -31,8 +22,15 @@ import AdminServices from './admin/AdminServices';
 function AdminPanel() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [adminUser, setAdminUser] = useState<any>(null);
-  const API_URL = getApiUrl();
+  // Init paresseux depuis le storage (évite un setState dans l'effet → cascading renders).
+  const [adminUser] = useState<Record<string, unknown> | null>(() => {
+    try {
+      const user = secureStorage.getItem('adminUser');
+      return user ? JSON.parse(user) : null;
+    } catch {
+      return null;
+    }
+  });
   useEffect(() => {
     const token = secureStorage.getItem('adminToken');
     const user = secureStorage.getItem('adminUser');
@@ -42,7 +40,6 @@ function AdminPanel() {
       }
       return;
     }
-    setAdminUser(JSON.parse(user));
     if (location.pathname === '/admin-panel' || location.pathname === '/admin-panel/') {
       navigate('/admin-panel/dashboard', { replace: true });
     }

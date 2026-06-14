@@ -45,14 +45,14 @@ export const apiClient = {
   async get(endpoint: string, options?: RequestOptions): Promise<Response> {
     return this.request(endpoint, { ...options, method: 'GET' });
   },
-  async post(endpoint: string, data?: any, options?: RequestOptions): Promise<Response> {
+  async post(endpoint: string, data?: unknown, options?: RequestOptions): Promise<Response> {
     return this.request(endpoint, {
       ...options,
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
-  async put(endpoint: string, data?: any, options?: RequestOptions): Promise<Response> {
+  async put(endpoint: string, data?: unknown, options?: RequestOptions): Promise<Response> {
     return this.request(endpoint, {
       ...options,
       method: 'PUT',

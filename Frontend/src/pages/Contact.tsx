@@ -53,7 +53,7 @@ const Contact: React.FC = () => {
       } else {
         setSubmitMessage({ type: 'error', text: result.message });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erreur lors de l\'envoi du message:', error);
       setSubmitMessage({ type: 'error', text: 'Une erreur est survenue. Veuillez réessayer.' });
     } finally {
