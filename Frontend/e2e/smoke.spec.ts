@@ -24,3 +24,11 @@ test('la page /checkout se charge (route critique du paiement)', async ({ page }
   await page.goto('/checkout');
   await expect(page.locator('#root')).not.toBeEmpty();
 });
+
+// Les pages statiques principales doivent toutes monter sans crash.
+for (const path of ['/services', '/contact', '/cgv', '/mentions-legales']) {
+  test(`la page ${path} se charge sans crash`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.locator('#root')).not.toBeEmpty();
+  });
+}
