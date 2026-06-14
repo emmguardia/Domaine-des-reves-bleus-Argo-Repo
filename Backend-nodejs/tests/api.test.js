@@ -48,4 +48,28 @@ describe('API HTTP (Supertest)', () => {
     const res = await request(app).get('/api/route-qui-nexiste-pas');
     expect(res.status).toBe(404);
   });
+
+  it('GET /api/user/ sans token → 401', async () => {
+    const res = await request(app).get('/api/user/');
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /api/addresses sans token → 401', async () => {
+    const res = await request(app).get('/api/addresses');
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /api/webhook avec signature invalide → 400', async () => {
+    // On fournit les secrets pour atteindre la vérif de signature ; getStripe étant
+    // mocké (pas de .webhooks valide), constructEvent échoue → 400 (comportement attendu).
+    vi.stubEnv('STRIPE_WEBHOOK_SECRET', 'whsec_test');
+    vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_dummy');
+    const res = await request(app)
+      .post('/api/webhook')
+      .set('stripe-signature', 'signature-bidon')
+      .set('Content-Type', 'application/json')
+      .send({ type: 'payment_intent.succeeded' });
+    expect(res.status).toBe(400);
+    vi.unstubAllEnvs();
+  });
 });
