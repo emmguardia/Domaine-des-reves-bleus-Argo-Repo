@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Patcher les vulnérabilités des packages système alpine (OpenSSL libssl3/libcrypto3, etc.)
+RUN apk update && apk upgrade --no-cache
+
 WORKDIR /app
 
 ENV npm_config_update_notifier=false \
