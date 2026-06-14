@@ -4,7 +4,9 @@
   "timezone": "Europe/Paris",
   "schedule": ["before 9am on monday"],
   "prConcurrentLimit": 5,
+  "labels": ["dependencies"],
   "osvVulnerabilityAlerts": true,
+  "dependencyDashboardOSVVulnerabilitySummary": "unresolved",
   "vulnerabilityAlerts": {
     "labels": ["security"],
     "automerge": true
