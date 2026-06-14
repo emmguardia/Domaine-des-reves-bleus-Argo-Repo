@@ -973,9 +973,32 @@ router.post('/checkout/init', async (req, res) => {
     res.json({ clientSecret: paymentIntent.client_secret, orderId, amount: totalCents / 100 });
 
   } catch (error) {
-    if (error.statusCode) {
+    // Erreur « métier » qu'on a levée nous-mêmes (panier vide, montant invalide…) : on renvoie
+    // son statusCode. On la distingue d'une erreur du SDK Stripe par l'absence de .type « Stripe* ».
+    const isStripeError = typeof error?.type === 'string' && error.type.startsWith('Stripe');
+
+    if (error.statusCode && !isStripeError) {
       return res.status(error.statusCode).json({ error: 'Erreur', detail: error.message });
     }
+
+    // Erreur côté Stripe : c'est un problème serveur/config, JAMAIS à propager tel quel au client.
+    // Avant, une StripeAuthenticationError (clé invalide/révoquée, statusCode 401) était renvoyée
+    // verbatim → le navigateur voyait un 401 trompeur (« session expirée ») au lieu d'une panne
+    // serveur. On log explicitement et on renvoie un 500 clair.
+    if (isStripeError) {
+      if (error.type === 'StripeAuthenticationError') {
+        logger.error({ err: error, type: error.type },
+          '🔑 [CHECKOUT-INIT] STRIPE_SECRET_KEY rejetée par Stripe (401) — clé invalide/révoquée, vérifier le secret déployé');
+      } else {
+        logger.error({ err: error, type: error.type, code: error.code },
+          '[CHECKOUT-INIT] Erreur Stripe lors de la création du PaymentIntent');
+      }
+      return res.status(500).json({
+        error: 'Erreur serveur',
+        detail: 'Le service de paiement est momentanément indisponible. Réessayez plus tard.',
+      });
+    }
+
     console.error('[CHECKOUT-INIT] Erreur:', error);
     res.status(500).json({ error: 'Erreur serveur', detail: error.message });
   }
