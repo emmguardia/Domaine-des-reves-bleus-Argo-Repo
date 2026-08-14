@@ -1,7 +1,44 @@
-# Build and push: main → version + digest (prod)
-# ArgoCD: App Prod = branche main + namespace domaine-des-reves-bleus
+# Build & push : main -> bump version + scan Trivy + push GHCR + pin digest dans values.yaml
+# ArgoCD reprend ensuite le relai et déploie sur le namespace domaine-des-reves-bleus.
 #
-# Runners GitHub (ubuntu) : illimités pour les repos publics
+# Runners GitHub-hosted ubuntu-latest (illimités pour repo public).
+# pnpm + minimum-release-age 24h pour défense supply-chain.
+#
+# Secrets GitHub requis : aucun en dehors du GITHUB_TOKEN fourni par la plateforme.
+#
+# ── CE QUI A CHANGÉ PAR RAPPORT À LA VERSION PRÉCÉDENTE ──────────────────────
+#
+# 1. npm -> pnpm, Node 20 -> 26.
+#    Node 20 est EOL depuis avril 2026 : plus aucun correctif. Trivy ne le
+#    signalait pas car `--ignore-unfixed` masque exactement les CVE sans
+#    correctif — un socle non maintenu passait les scans en vert.
+#    pnpm apporte `minimum-release-age=1440` (.npmrc) : aucun paquet publié
+#    depuis moins de 24 h n'est installé, ce qui laisse à la communauté le temps
+#    de détecter une version compromise. npm n'a aucun équivalent.
+#
+# 2. `pnpm audit --prod` au lieu de `npm audit` tout court.
+#    C'est LA correction du deadlock. L'audit portait sur tout le repo,
+#    devDependencies comprises : une CVE dans postcss ou vitest faisait échouer
+#    la CI de toutes les PRs, y compris celles qui corrigeaient d'autres CVE.
+#    Aucune PR de correctif ne pouvait donc passer tant que TOUTES n'étaient pas
+#    corrigées simultanément — 7 PRs se sont empilées, dont 4 de sécurité.
+#
+# 3. L'image scannée est désormais l'image poussée.
+#    Le scan portait sur `scan-backend:latest` et l'étape de push relançait un
+#    `docker build`. Deux builds distincts : rien ne garantissait que l'image
+#    publiée soit celle validée par Trivy. On builde une fois avec `load: true`,
+#    on scanne, puis on `docker tag` + `docker push` ce binaire-là.
+#
+# 4. Le pin de digest est vérifié (avant ET après le sed).
+#    Un sed qui ne matchait rien laissait le job passer au vert sans rien
+#    déployer. Échec silencieux.
+#
+# 5. tests.yml a été fusionné ici.
+#    Les tests unitaires backend et frontend tournaient en double (une fois
+#    ici, une fois dans tests.yml), et l'E2E Playwright ne bloquait pas le
+#    déploiement. Désormais `test` et `e2e` conditionnent tous les deux le push.
+#
+# 6. Le lint n'est plus en `continue-on-error`.
 
 name: Build and push to GHCR
 
@@ -25,17 +62,20 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  TRIVY_IMAGE: aquasec/trivy:0.69.3
+  TRIVY_IMAGE: aquasec/trivy:0.73.0
+  PNPM_VERSION: 10.33.4
+  NODE_VERSION: '26'
 
 permissions:
   contents: read
   packages: write
-  attestations: write
-  id-token: write
 
+# false et non true : ce job pousse des images sur GHCR puis commite le digest.
+# Une annulation en plein milieu laisse une image publiée que values.yaml ne
+# référence pas.
 concurrency:
   group: build-and-push-${{ github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -48,49 +88,102 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
           cache-dependency-path: |
-            Backend-nodejs/package-lock.json
-            Frontend/package-lock.json
+            Backend-nodejs/pnpm-lock.yaml
+            Frontend/pnpm-lock.yaml
 
       - name: Backend – install
-        run: cd Backend-nodejs && npm ci
+        working-directory: Backend-nodejs
+        run: pnpm install --frozen-lockfile
 
-      - name: Backend – audit (high+)
-        run: cd Backend-nodejs && npm audit --audit-level=high
+      # `--prod` : restreint aux dépendances qui partent réellement en
+      # production. Les exceptions justifiées se déclarent dans
+      # pnpm.auditConfig.ignoreGhsas du package.json, pas en ignorant le
+      # résultat entier.
+      - name: Backend – audit (prod, high+)
+        working-directory: Backend-nodejs
+        run: pnpm audit --prod --audit-level high
 
-      - name: Backend – test (if present)
-        run: cd Backend-nodejs && npm test --if-present
+      - name: Backend – tests
+        working-directory: Backend-nodejs
+        run: pnpm run --if-present test
 
       - name: Frontend – install
         working-directory: Frontend
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            echo "WARN: pas de package-lock.json, npm install"
-            npm install --no-audit --no-fund
-          fi
+        run: pnpm install --frozen-lockfile
 
-      - name: Frontend – audit (high+)
-        run: cd Frontend && npm audit --audit-level=high
+      - name: Frontend – audit (prod, high+)
+        working-directory: Frontend
+        run: pnpm audit --prod --audit-level high
 
+      # Bloquant. Le `continue-on-error: true` qui traînait ici datait d'avant
+      # le nettoyage des erreurs ESLint et masquait toute régression.
       - name: Frontend – lint
-        run: cd Frontend && npm run lint
-        continue-on-error: true  # lint informatif — corriger les warnings progressivement
+        working-directory: Frontend
+        run: pnpm lint
 
-      - name: Frontend – test (if present)
-        run: cd Frontend && npm run test --if-present
+      - name: Frontend – tests
+        working-directory: Frontend
+        run: pnpm run --if-present test
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: Frontend/pnpm-lock.yaml
+
+      - name: Frontend – install
+        working-directory: Frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Installer Chromium
+        working-directory: Frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright
+        working-directory: Frontend
+        run: pnpm run test:e2e
+
+      - name: Rapport Playwright
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: Frontend/playwright-report/
+          retention-days: 7
 
   build-and-push:
     name: Build and push
-    needs: test
+    needs: [test, e2e]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -100,28 +193,34 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
           cache-dependency-path: |
-            Backend-nodejs/package-lock.json
-            Frontend/package-lock.json
+            Backend-nodejs/pnpm-lock.yaml
+            Frontend/pnpm-lock.yaml
 
       - name: Bump version (prod)
         id: tag
         run: |
+          set -euo pipefail
           CONTENT=$(cat version.txt | tr -d '\r\n ')
           MAJOR=$(echo "$CONTENT" | cut -d. -f1)
           MINOR=$(echo "$CONTENT" | cut -d. -f2)
           PATCH=$(echo "$CONTENT" | cut -d. -f3)
           if ! [[ "$MAJOR" =~ ^[0-9]+$ ]] || ! [[ "$MINOR" =~ ^[0-9]+$ ]] || ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then
-            echo "version.txt invalide: $CONTENT (attendu X.Y.Z)"
+            echo "::error::version.txt invalide: $CONTENT (attendu X.Y.Z)"
             exit 1
           fi
           if [ "$PATCH" -lt 9 ]; then
@@ -133,82 +232,89 @@ jobs:
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           echo "$NEW_VERSION" > version.txt
           TAG="v${NEW_VERSION}"
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Version: $CONTENT → $NEW_VERSION (tag: $TAG)"
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # ── Backend ──────────────────────────────────────────────────────────────
       - name: Extract metadata (backend)
         id: meta-backend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/domaine-des-reves-bleus-back
           tags: |
             type=raw,value=${{ steps.tag.outputs.tag }}
 
-      # Étape 1 : build local pour le scan Trivy (pas de push)
-      - name: Build backend (local — pour scan Trivy)
-        uses: docker/build-push-action@v6
+      # Build UNIQUE, chargé dans le démon Docker local. Aucun push ici.
+      # C'est ce binaire précis qui sera scanné puis publié.
+      - name: Build backend (local)
+        uses: docker/build-push-action@v7
         with:
           context: ./Backend-nodejs
-          load: true          # charge dans le démon Docker local, sans push
+          load: true
           push: false
-          tags: scan-backend:latest
+          tags: drb-back:candidate
+          labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           pull: true
 
-      # Étape 2 : scan AVANT push — image vulnérable ne part jamais dans GHCR
       - name: Trivy scan backend (avant push)
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --format table \
-            scan-backend:latest
+            drb-back:candidate
 
-      # Étape 3 : push uniquement si le scan est clean
       - name: Push backend
-        id: build-backend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./Backend-nodejs
-          push: true
-          tags: ${{ steps.meta-backend.outputs.tags }}
-          labels: ${{ steps.meta-backend.outputs.labels }}
-          cache-from: type=gha   # toutes les couches en cache → push quasi-instantané
-          pull: true
+        id: push-backend
+        env:
+          META_TAGS: ${{ steps.meta-backend.outputs.tags }}
+        run: |
+          set -euo pipefail
+          TARGET=$(printf '%s\n' "$META_TAGS" | head -1)
+          docker tag drb-back:candidate "$TARGET"
+          PUSH_OUT=$(docker push "$TARGET" | tee /dev/stderr)
+          DIGEST=$(docker buildx imagetools inspect "$TARGET" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          if [ -z "$DIGEST" ]; then
+            DIGEST=$(printf '%s\n' "$PUSH_OUT" | grep -oE 'sha256:[0-9a-f]{64}' | tail -1 || true)
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Backend publié : $TARGET (digest: ${DIGEST:-introuvable})"
 
       # ── Frontend ─────────────────────────────────────────────────────────────
+      # Le script `build` est `tsc && vite build` : le typecheck est donc fait
+      # ici, il n'y a pas de script `typecheck` séparé à appeler.
       - name: Frontend – install & build (dist/ requis par Dockerfile)
         working-directory: Frontend
         run: |
-          npm ci
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm run build
 
       - name: Extract metadata (frontend)
         id: meta-frontend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/domaine-des-reves-bleus-front
           tags: |
             type=raw,value=${{ steps.tag.outputs.tag }}
 
-      - name: Build frontend (local — pour scan Trivy)
-        uses: docker/build-push-action@v6
+      - name: Build frontend (local)
+        uses: docker/build-push-action@v7
         with:
           context: ./Frontend
           load: true
           push: false
-          tags: scan-frontend:latest
+          tags: drb-front:candidate
+          labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           pull: true
@@ -217,53 +323,106 @@ jobs:
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
             ${{ env.TRIVY_IMAGE }} image --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed --format table \
-            scan-frontend:latest
+            drb-front:candidate
 
       - name: Push frontend
-        id: build-frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./Frontend
-          push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=gha
-          pull: true
+        id: push-frontend
+        env:
+          META_TAGS: ${{ steps.meta-frontend.outputs.tags }}
+        run: |
+          set -euo pipefail
+          TARGET=$(printf '%s\n' "$META_TAGS" | head -1)
+          docker tag drb-front:candidate "$TARGET"
+          PUSH_OUT=$(docker push "$TARGET" | tee /dev/stderr)
+          DIGEST=$(docker buildx imagetools inspect "$TARGET" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          if [ -z "$DIGEST" ]; then
+            DIGEST=$(printf '%s\n' "$PUSH_OUT" | grep -oE 'sha256:[0-9a-f]{64}' | tail -1 || true)
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Frontend publié : $TARGET (digest: ${DIGEST:-introuvable})"
 
       # ── Pin digest dans values.yaml → ArgoCD sync automatique ────────────────
       - name: Pin Helm values to image digest
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          BRANCH: ${{ github.ref_name }}
+          DIGEST_BACKEND: ${{ steps.push-backend.outputs.digest }}
+          DIGEST_FRONTEND: ${{ steps.push-frontend.outputs.digest }}
+          OWNER: ${{ github.repository_owner }}
+          REG: ${{ env.REGISTRY }}
         run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          DIGEST_BACKEND="${{ steps.build-backend.outputs.digest }}"
-          DIGEST_FRONTEND="${{ steps.build-frontend.outputs.digest }}"
-          OWNER="${{ github.repository_owner }}"
-          REG="${{ env.REGISTRY }}"
+          set -euo pipefail
+          VALUES_PATH="charts/domaine-des-reves-bleus/values.yaml"
 
-          if [ -n "$DIGEST_BACKEND" ]; then
+          # Remplace la ligne `image:` d'un composant, en échouant bruyamment si
+          # elle est introuvable ou si le remplacement n'a pas pris. Garde-fou
+          # contre le déploiement fantôme : un sed muet passait au vert.
+          update_image() {
+            local key="$1" newref="$2"
+            if ! grep -qE "^[[:space:]]+image:[[:space:]]*ghcr\.io/.*${key}[@:]" "$VALUES_PATH"; then
+              echo "::error::Aucune ligne 'image:' pour ${key} dans ${VALUES_PATH}. Le pin de digest aurait échoué en silence."
+              exit 1
+            fi
+            sed -i -E "s|^([[:space:]]+)image:[[:space:]]*ghcr\.io/.*${key}[@:].*|\1image: ${newref}|" "$VALUES_PATH"
+            if ! grep -qF "image: ${newref}" "$VALUES_PATH"; then
+              echo "::error::Le remplacement de ${key} n'a pas pris dans ${VALUES_PATH}."
+              exit 1
+            fi
+            echo "  ${key} → ${newref}"
+          }
+
+          if [ -n "${DIGEST_BACKEND:-}" ]; then
             BACKEND_IMAGE="${REG}/${OWNER}/domaine-des-reves-bleus-back@${DIGEST_BACKEND}"
           else
             BACKEND_IMAGE="${REG}/${OWNER}/domaine-des-reves-bleus-back:${TAG}"
+            echo "::warning::Digest backend introuvable, pin sur le tag ${TAG} (déploiement OK mais non immuable)."
           fi
-          if [ -n "$DIGEST_FRONTEND" ]; then
+          if [ -n "${DIGEST_FRONTEND:-}" ]; then
             FRONTEND_IMAGE="${REG}/${OWNER}/domaine-des-reves-bleus-front@${DIGEST_FRONTEND}"
           else
             FRONTEND_IMAGE="${REG}/${OWNER}/domaine-des-reves-bleus-front:${TAG}"
+            echo "::warning::Digest frontend introuvable, pin sur le tag ${TAG} (déploiement OK mais non immuable)."
           fi
 
-          VALUES_PATH="charts/domaine-des-reves-bleus/values.yaml"
-
-          sed -i "s|  image: ghcr.io/.*domaine-des-reves-bleus-back.*|  image: ${BACKEND_IMAGE}|" "$VALUES_PATH"
-          sed -i "s|  image: ghcr.io/.*domaine-des-reves-bleus-front.*|  image: ${FRONTEND_IMAGE}|" "$VALUES_PATH"
+          # L'ordre compte : `-back` avant `-front` n'a pas d'importance ici car
+          # les deux clés sont distinctes, mais on vérifie chaque remplacement.
+          update_image "domaine-des-reves-bleus-back"  "$BACKEND_IMAGE"
+          update_image "domaine-des-reves-bleus-front" "$FRONTEND_IMAGE"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git add version.txt "$VALUES_PATH"
 
           if git diff --staged --quiet; then
-            echo "Helm values already up to date, skip commit"
+            echo "::warning::Rien à commiter alors que le pin a réussi — values.yaml pointait déjà sur ce digest."
           else
-            git commit -m "chore(helm): pin images to digest $TAG [skip ci]"
-            git pull --rebase origin ${{ github.ref_name }}
-            git push origin ${{ github.ref_name }}
+            git commit -m "chore(helm): pin images to digest ${TAG} [skip ci]"
+
+            pushed=false
+            for attempt in 1 2 3; do
+              if git push origin "HEAD:${BRANCH}"; then
+                pushed=true
+                break
+              fi
+              echo "::warning::Push refusé (tentative ${attempt}/3), rebase sur origin/${BRANCH}…"
+              git fetch origin "$BRANCH"
+              if ! git rebase "origin/${BRANCH}"; then
+                git rebase --abort || true
+                echo "::error::Conflit de rebase sur ${BRANCH}, intervention manuelle requise."
+                exit 1
+              fi
+              sleep $((attempt * 3))
+            done
+            if [ "$pushed" != "true" ]; then
+              echo "::error::Impossible de pousser le pin de digest après 3 tentatives."
+              exit 1
+            fi
           fi
+
+          {
+            echo "### Déploiement ${TAG}"
+            echo "- Backend : \`${BACKEND_IMAGE}\`"
+            echo "- Frontend : \`${FRONTEND_IMAGE}\`"
+            echo ""
+            echo "Images scannées par Trivy avant publication. ArgoCD synchronise le cluster dans les minutes qui suivent."
+          } >> "$GITHUB_STEP_SUMMARY"

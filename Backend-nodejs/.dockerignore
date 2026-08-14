@@ -1,14 +1,32 @@
+# Accélère le build en excluant les artefacts et les fichiers dev du contexte.
 node_modules
+.pnpm-store
 .git
 .gitignore
 *.md
 .env
 .env.*
-uploads
-scripts
-.npmrc
 *.log
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Tests et outillage de test : pas nécessaires en image production
+tests
 *.test.js
 __tests__
+vitest.config.js
 coverage
 .nyc_output
+
+# Scripts d'initialisation lancés à la main, jamais au runtime
+scripts
+
+# Données locales
+uploads
+
+# NOTE : .npmrc n'est PAS exclu, contrairement à avant. Il porte
+# ignore-scripts=true, qui doit s'appliquer aussi pendant le build de l'image —
+# sinon les scripts post-install des dépendances s'exécuteraient dans le
+# conteneur alors qu'ils sont bloqués en local et en CI.
