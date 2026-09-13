@@ -13,6 +13,14 @@ interface Service {
   details: string[];
 }
 
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+async function loadServices(apiUrl: string, signal?: AbortSignal): Promise<Service[]> {
+  const response = await adminFetch(`${apiUrl}/api/admin/services`, { signal });
+  if (!response.ok) throw new Error(`Erreur récupération services : ${response.status}`);
+  return response.json();
+}
 function AdminServices() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,25 +29,20 @@ function AdminServices() {
   const [saving, setSaving] = useState(false);
   const API_URL = getApiUrl();
 
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
   useEffect(() => {
-    fetchServices();
-  }, []);
-
-  const fetchServices = async () => {
-    try {
-      const response = await adminFetch(`${API_URL}/api/admin/services`);
-      if (response.ok) {
-        const data = await response.json();
-        setServices(data);
-      } else {
-        logger.error('Erreur récupération services:', response.status);
-      }
-    } catch (error) {
-      logger.error('Erreur:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const ac = new AbortController();
+    loadServices(API_URL, ac.signal)
+      .then(data => { setServices(data); setLoading(false); })
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        logger.error('Erreur:', error);
+        setLoading(false);
+      });
+    return () => ac.abort();
+  }, [API_URL]);
 
   const handleEdit = (service: Service) => {
     setEditingId(service.id);

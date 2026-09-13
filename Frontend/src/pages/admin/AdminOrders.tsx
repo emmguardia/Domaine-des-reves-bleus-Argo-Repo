@@ -40,6 +40,23 @@ interface Order {
     email: string;
   };
 }
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+async function loadOrders(apiUrl: string, filter: string, signal?: AbortSignal): Promise<Order[]> {
+  const url = filter === 'failed'
+    ? `${apiUrl}/api/admin/orders?paymentStatus=failed`
+    : (filter !== 'all'
+      ? `${apiUrl}/api/admin/orders?status=${filter}`
+      : `${apiUrl}/api/admin/orders`);
+  const response = await adminFetch(url, { signal });
+  if (!response.ok) throw new Error(`Erreur HTTP commandes : ${response.status}`);
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error('Réponse non-JSON reçue pour les commandes');
+  }
+  return response.json();
+}
 function AdminOrders() {
   const getOrderId = (order: Order) => String(order._id || order.id || '');
   const getPaymentIntentId = (order: Order) => String(order.paymentIntentId || order.payment_intent_id || '');
@@ -54,34 +71,30 @@ function AdminOrders() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const API_URL = getApiUrl();
-  useEffect(() => {
-    fetchOrders();
-  }, [filter]);
+  // Rechargement déclenché par l'interface (changement de statut, suppression).
   const fetchOrders = async () => {
     try {
-      const url = filter === 'failed'
-        ? `${API_URL}/api/admin/orders?paymentStatus=failed`
-        : (filter !== 'all'
-          ? `${API_URL}/api/admin/orders?status=${filter}`
-          : `${API_URL}/api/admin/orders`);
-      const response = await adminFetch(url);
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          setOrders(data);
-        } else {
-          console.error('Réponse non-JSON reçue pour les commandes');
-        }
-      } else {
-        console.error('Erreur HTTP commandes:', response.status);
-      }
+      setOrders(await loadOrders(API_URL, filter));
     } catch (error) {
       console.error('Erreur lors de la récupération des commandes:', error);
     } finally {
       setLoading(false);
     }
   };
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
+  useEffect(() => {
+    const ac = new AbortController();
+    loadOrders(API_URL, filter, ac.signal)
+      .then(data => { setOrders(data); setLoading(false); })
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        console.error('Erreur lors de la récupération des commandes:', error);
+        setLoading(false);
+      });
+    return () => ac.abort();
+  }, [API_URL, filter]);
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       const response = await adminFetch(`${API_URL}/api/admin/orders/${orderId}/status`, {

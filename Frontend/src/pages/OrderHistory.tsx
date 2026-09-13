@@ -29,39 +29,41 @@ interface Order {
   createdAt: string;
   shippedAt?: string;
 }
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+// Les messages levés ici sont ceux affichés à l'utilisateur.
+async function loadOrders(signal?: AbortSignal): Promise<Order[]> {
+  const token = secureStorage.getItem('token');
+  if (!token) throw new Error('Non authentifié');
+  const response = await fetch(`${getApiUrl()}/api/user/orders`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    signal,
+  });
+  if (!response.ok) throw new Error('Erreur lors du chargement des commandes');
+  return response.json();
+}
 function OrderHistory() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
   useEffect(() => {
-    fetchOrders();
-  }, []);
-  const fetchOrders = async () => {
-    try {
-      const token = secureStorage.getItem('token');
-      if (!token) {
-        setError('Non authentifié');
+    const ac = new AbortController();
+    loadOrders(ac.signal)
+      .then(data => { setOrders(data); setLoading(false); })
+      .catch(err => {
+        if (ac.signal.aborted) return;
+        logger.error('Erreur:', err);
+        setError(err instanceof Error ? err.message : 'Erreur lors du chargement des commandes');
         setLoading(false);
-        return;
-      }
-      const response = await fetch(`${getApiUrl()}/api/user/orders`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       });
-      if (response.ok) {
-        const data = await response.json();
-        setOrders(data);
-      } else {
-        setError('Erreur lors du chargement des commandes');
-      }
-    } catch (err) {
-      logger.error('Erreur:', err);
-      setError('Erreur lors du chargement des commandes');
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => ac.abort();
+  }, []);
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'delivered':

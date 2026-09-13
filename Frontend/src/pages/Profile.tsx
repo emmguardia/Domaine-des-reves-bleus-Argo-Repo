@@ -6,14 +6,25 @@ import { logger } from '../utils/logger';
 import OrderHistory from './OrderHistory';
 import { AddressManager } from '../components/AddressManager';
 import { FaDownload, FaTrash } from 'react-icons/fa';
+interface ProfileForm {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+}
+
 const Profile: React.FC = () => {
   const { user, logout, refreshUser } = useAuth();
-  const [form, setForm] = useState({
+  // Le formulaire est dérivé de `user` : tant que rien n'a été édité (`edits` à
+  // null) il affiche les valeurs du compte, y compris après un refreshUser().
+  // Plus besoin d'un effet qui recopiait `user` dans un state miroir.
+  const [edits, setEdits] = useState<ProfileForm | null>(null);
+  const form: ProfileForm = edits ?? {
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     phone: user?.phone || '',
     email: user?.email || '',
-  });
+  };
   const [editMode, setEditMode] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -24,21 +35,11 @@ const Profile: React.FC = () => {
       refreshUser();
     }
   }, []);
-  useEffect(() => {
-    if (user) {
-      setForm({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        phone: user.phone || '',
-        email: user.email || '',
-      });
-    }
-  }, [user]);
   if (!user) {
     return <div className="pt-24 text-center">Veuillez vous connecter pour voir votre profil.</div>;
   }
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setEdits({ ...form, [e.target.name]: e.target.value });
   };
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -63,6 +64,7 @@ const Profile: React.FC = () => {
       if (!res.ok) throw new Error('Erreur lors de la mise à jour');
       await refreshUser();
       setMessage('Profil mis à jour !');
+      setEdits(null);
       setEditMode(false);
     } catch {
       setError('Erreur lors de la mise à jour du profil');
@@ -271,7 +273,7 @@ const Profile: React.FC = () => {
                       <button 
                         type="button" 
                         className="flex-1 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-400 transition-colors"
-                        onClick={() => setEditMode(false)}
+                        onClick={() => { setEdits(null); setEditMode(false); }}
                         disabled={loading}
                       >
                         Annuler

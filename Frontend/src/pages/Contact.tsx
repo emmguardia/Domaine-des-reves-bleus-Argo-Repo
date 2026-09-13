@@ -1,28 +1,21 @@
-import React, { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import React, { useState, FormEvent, ChangeEvent } from 'react';
 import { motion } from 'framer-motion';
 import { FaClock, FaMapMarkerAlt, FaEnvelope } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { sendContactEmail } from '../services/emailService';
 const Contact: React.FC = () => {
   const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    lastName: '',
-    firstName: '',
-    email: '',
+  // AuthContext lit la session de façon synchrone : l'utilisateur connecté est
+  // donc disponible dès le premier rendu et le pré-remplissage se fait à
+  // l'initialisation du state, sans effet qui réécrirait le formulaire ensuite.
+  const [formData, setFormData] = useState(() => ({
+    lastName: user?.lastName || '',
+    firstName: user?.firstName || '',
+    email: user?.email || '',
     message: ''
-  });
+  }));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState({ type: '', text: '' });
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        lastName: user.lastName || '',
-        firstName: user.firstName || '',
-        email: user.email || '',
-        message: ''
-      });
-    }
-  }, [user]);
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({

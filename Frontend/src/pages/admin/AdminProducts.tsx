@@ -15,6 +15,31 @@ interface Product {
   weightGrams?: number;
   isPlaceholder?: boolean;
 }
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+async function loadCategoryNames(apiUrl: string, signal?: AbortSignal): Promise<string[]> {
+  const response = await adminFetch(`${apiUrl}/api/admin/categories`, { signal });
+  if (!response.ok) throw new Error(`Erreur lors de la récupération des catégories : ${response.status}`);
+  const data = await response.json();
+  return data.map((cat: { name: string }) => cat.name).sort();
+}
+
+async function loadProducts(apiUrl: string, signal?: AbortSignal): Promise<Product[]> {
+  const response = await adminFetch(`${apiUrl}/api/admin/products`, { signal });
+  if (!response.ok) throw new Error(`Erreur HTTP produits admin : ${response.status}`);
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error('Réponse non-JSON reçue pour les produits admin');
+  }
+  const data = await response.json();
+  return data.map((product: Product & { is_placeholder?: boolean }) => ({
+    ...product,
+    _id: product.id || product._id,
+    id: product.id || product._id,
+    isPlaceholder: product.isPlaceholder !== undefined ? product.isPlaceholder : (product.is_placeholder || false)
+  }));
+}
 function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -33,24 +58,10 @@ function AdminProducts() {
     isPlaceholder: false,
   });
   const API_URL = getApiUrl();
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-  }, []);
-  
+  // Rechargements déclenchés par l'interface (ajout, édition, suppression).
   const fetchCategories = async () => {
     try {
-      const response = await adminFetch(`${API_URL}/api/admin/categories`);
-      if (response.ok) {
-        const data = await response.json();
-        // Extraire les noms des catégories
-        const categoryNames = data.map((cat) => cat.name).sort();
-        setCategories(categoryNames);
-      } else {
-        logger.error('Erreur lors de la récupération des catégories:', response.status);
-        // En cas d'erreur, laisser la liste vide (pas de catégories par défaut)
-        setCategories([]);
-      }
+      setCategories(await loadCategoryNames(API_URL));
     } catch (error) {
       logger.error('Erreur lors de la récupération des catégories:', error);
       // En cas d'erreur, laisser la liste vide (pas de catégories par défaut)
@@ -59,30 +70,34 @@ function AdminProducts() {
   };
   const fetchProducts = async () => {
     try {
-      const response = await adminFetch(`${API_URL}/api/admin/products`);
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          const mappedProducts = data.map((product) => ({
-            ...product,
-            _id: product.id || product._id,
-            id: product.id || product._id,
-            isPlaceholder: product.isPlaceholder !== undefined ? product.isPlaceholder : (product.is_placeholder || false)
-          }));
-          setProducts(mappedProducts);
-        } else {
-          logger.error('Réponse non-JSON reçue pour les produits admin');
-        }
-      } else {
-        logger.error('Erreur HTTP produits admin:', response.status);
-      }
+      setProducts(await loadProducts(API_URL));
     } catch (error) {
       logger.error('Erreur lors de la récupération des produits:', error);
     } finally {
       setLoading(false);
     }
   };
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
+  useEffect(() => {
+    const ac = new AbortController();
+    loadProducts(API_URL, ac.signal)
+      .then(data => { setProducts(data); setLoading(false); })
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        logger.error('Erreur lors de la récupération des produits:', error);
+        setLoading(false);
+      });
+    loadCategoryNames(API_URL, ac.signal)
+      .then(names => setCategories(names))
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        logger.error('Erreur lors de la récupération des catégories:', error);
+        setCategories([]);
+      });
+    return () => ac.abort();
+  }, [API_URL]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {

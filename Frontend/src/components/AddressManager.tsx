@@ -19,6 +19,23 @@ interface AddressManagerProps {
   onSelect?: (address: Address) => void;
   showSelectButton?: boolean;
 }
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+// Sans jeton, l'utilisateur n'est pas connecté : pas d'adresses, pas d'erreur.
+async function loadAddresses(signal?: AbortSignal): Promise<Address[]> {
+  const token = secureStorage.getItem('token');
+  if (!token) return [];
+  const response = await fetch(`${getApiUrl()}/api/addresses/`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    signal,
+  });
+  if (!response.ok) throw new Error(`Erreur HTTP adresses : ${response.status}`);
+  return response.json();
+}
+
 export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSelectButton = false }) => {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,31 +55,30 @@ export const AddressManager: React.FC<AddressManagerProps> = ({ onSelect, showSe
     country: 'France',
     isDefault: false
   });
-  useEffect(() => {
-    fetchAddresses();
-  }, []);
+  // Rechargement déclenché par l'interface (après ajout, édition, suppression).
   const fetchAddresses = async () => {
     try {
-      const token = secureStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      const response = await fetch(`${getApiUrl()}/api/addresses/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setAddresses(data);
-      }
+      setAddresses(await loadAddresses());
     } catch (err) {
       logger.error('Erreur:', err);
     } finally {
       setLoading(false);
     }
   };
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
+  useEffect(() => {
+    const ac = new AbortController();
+    loadAddresses(ac.signal)
+      .then(data => { setAddresses(data); setLoading(false); })
+      .catch(err => {
+        if (ac.signal.aborted) return;
+        logger.error('Erreur:', err);
+        setLoading(false);
+      });
+    return () => ac.abort();
+  }, []);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);

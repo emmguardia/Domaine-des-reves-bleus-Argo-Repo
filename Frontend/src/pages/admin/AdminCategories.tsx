@@ -8,6 +8,14 @@ interface Category {
   description: string | null;
   createdAt: string;
 }
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+async function loadCategories(apiUrl: string, signal?: AbortSignal): Promise<Category[]> {
+  const response = await adminFetch(`${apiUrl}/api/admin/categories`, { signal });
+  if (!response.ok) throw new Error(`Erreur lors de la récupération des catégories : ${response.status}`);
+  return response.json();
+}
 function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,25 +26,30 @@ function AdminCategories() {
     description: '',
   });
   const API_URL = getApiUrl();
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  // Rechargement déclenché par l'interface (création, édition, suppression).
   const fetchCategories = async () => {
     try {
-      const response = await adminFetch(`${API_URL}/api/admin/categories`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      } else {
-        logger.error('Erreur lors de la récupération des catégories:', response.status);
-      }
+      setCategories(await loadCategories(API_URL));
     } catch (error) {
       logger.error('Erreur:', error);
     } finally {
       setLoading(false);
     }
   };
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
+  useEffect(() => {
+    const ac = new AbortController();
+    loadCategories(API_URL, ac.signal)
+      .then(data => { setCategories(data); setLoading(false); })
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        logger.error('Erreur:', error);
+        setLoading(false);
+      });
+    return () => ac.abort();
+  }, [API_URL]);
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
