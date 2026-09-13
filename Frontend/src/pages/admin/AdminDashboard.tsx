@@ -26,39 +26,49 @@ interface DashboardStats {
   revenue?: { gross?: number; net?: number };
 }
 
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+async function loadStats(apiUrl: string, signal?: AbortSignal): Promise<DashboardStats> {
+  const response = await adminFetch(`${apiUrl}/api/admin/stats`, { cache: 'no-store', signal });
+  if (!response.ok) throw new Error(`Erreur HTTP statistiques : ${response.status}`);
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error('Réponse non-JSON reçue pour les statistiques');
+  }
+  return response.json();
+}
 function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const API_URL = getApiUrl();
 
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
   useEffect(() => {
-    fetchStats();
-  }, []);
+    const ac = new AbortController();
+    loadStats(API_URL, ac.signal)
+      .then(data => { setStats(data); setLoading(false); })
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        logger.error('Erreur lors de la récupération des statistiques:', error);
+        setLoading(false);
+      });
+    return () => ac.abort();
+  }, [API_URL]);
 
+  // Rafraîchit les chiffres au retour sur l'onglet.
   useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') fetchStats();
+      if (document.visibilityState !== 'visible') return;
+      loadStats(API_URL)
+        .then(data => setStats(data))
+        .catch(error => logger.error('Erreur lors de la récupération des statistiques:', error));
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
-
-  const fetchStats = async () => {
-    try {
-      const response = await adminFetch(`${API_URL}/api/admin/stats`, { cache: 'no-store' });
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          setStats(data);
-        }
-      }
-    } catch (error) {
-      logger.error('Erreur lors de la récupération des statistiques:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [API_URL]);
 
   if (loading) {
     return (

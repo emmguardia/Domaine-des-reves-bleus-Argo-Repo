@@ -16,45 +16,41 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   disabled = false,
   onSelect
 }) => {
-  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  // Les suggestions appartiennent à une requête précise. On mémorise la requête
+  // avec ses résultats et on dérive la liste affichée au rendu : plus besoin
+  // d'un effet pour « vider » l'état quand la saisie change — c'est justement ce
+  // vidage synchrone dans un effet que React déconseille.
+  const [results, setResults] = useState<{ query: string; items: AddressSuggestion[] }>({ query: '', items: [] });
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout>();
-  const searchAddressesDebounced = async (query: string) => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    debounceRef.current = setTimeout(async () => {
-      const cleanedQuery = query.trim();
-      if (cleanedQuery.length >= 3) {
-        setIsLoading(true);
-        try {
-          const results = await searchAddresses(cleanedQuery);
-          setSuggestions(results);
-          setIsOpen(results.length > 0);
-        } catch {
-          setSuggestions([]);
-          setIsOpen(false);
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
-        setSuggestions([]);
+  const query = value.trim();
+  const suggestions = results.query === query ? results.items : [];
+  // Recherche débouncée. Le timer vit dans l'effet et son nettoyage l'annule, ce
+  // qui couvre aussi le démontage — l'ancienne version laissait le timeout se
+  // déclencher sur un composant disparu.
+  useEffect(() => {
+    if (query.length < 3) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const found = await searchAddresses(query);
+        if (cancelled) return;
+        setResults({ query, items: found });
+        setIsOpen(found.length > 0);
+      } catch {
+        if (cancelled) return;
+        setResults({ query, items: [] });
         setIsOpen(false);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     }, 300);
-  };
-  useEffect(() => {
-    if (value) {
-      searchAddressesDebounced(value);
-    } else {
-      setSuggestions([]);
-      setIsOpen(false);
-    }
-  }, [value]);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [query]);
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (

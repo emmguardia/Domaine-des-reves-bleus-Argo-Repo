@@ -21,6 +21,99 @@ interface Product {
   isNew?: boolean;
   isPlaceholder?: boolean;
 }
+// Traduit une réponse HTTP en échec en message affichable.
+async function httpProductsError(response: Response): Promise<Error> {
+  const errorText = await response.text().catch(() => 'Impossible de lire la réponse');
+  const isCloudflareError = errorText.includes('Cloudflare') || errorText.includes('Bad gateway');
+  if (response.status === 502) {
+    return new Error(isCloudflareError
+      ? "Le serveur backend n'est pas accessible. Cloudflare ne peut pas joindre le serveur."
+      : "Le serveur backend n'est pas accessible.");
+  }
+  if (response.status === 503) {
+    return new Error('Service temporairement indisponible. Veuillez réessayer dans quelques instants.');
+  }
+  if (response.status === 404) {
+    return new Error('Route API non trouvée. Vérifiez la configuration du serveur.');
+  }
+  return new Error(`Erreur ${response.status}: ${response.statusText}`);
+}
+
+function productsErrorMessage(error: unknown): string {
+  const err = error instanceof Error ? error : new Error(String(error));
+  if (err.name === 'AbortError') return 'Le serveur ne répond pas dans les temps (timeout 10s)';
+  if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+    return 'Impossible de joindre le serveur. Vérifiez votre connexion.';
+  }
+  return err.message || "Une erreur inattendue s'est produite.";
+}
+
+// L'appel réseau est isolé du state : il renvoie les produits ou lève. L'effet
+// n'écrit alors dans le state que depuis les callbacks de la promesse, jamais
+// synchroniquement dans son corps. Le timeout de 10 s reste géré ici.
+async function loadProducts(signal?: AbortSignal): Promise<Product[]> {
+  const apiUrl = getApiUrl();
+  const fullUrl = apiUrl ? `${apiUrl}/api/products/` : '/api/products/';
+  logger.log('Récupération des produits depuis:', fullUrl);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  // Le démontage du composant doit couper la requête au même titre que le timeout.
+  signal?.addEventListener('abort', () => controller.abort(), { once: true });
+
+  try {
+    const response = await fetch(fullUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal
+    });
+    logger.log('Réponse reçue');
+    if (!response.ok) throw await httpProductsError(response);
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Réponse non-JSON reçue');
+    }
+    const data = await response.json();
+    logger.log('Produits reçus:', data.length, 'produits');
+    if (!Array.isArray(data) || data.length === 0) {
+      logger.warn('Aucun produit trouvé dans la réponse');
+      return [];
+    }
+    return data.map((product: Product & { _id?: string }) => ({
+      ...product,
+      id: product._id || product.id
+    }));
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Sélection par défaut : la première option déclarée par chaque produit.
+function defaultSelections(products: Product[]) {
+  const volumes: { [key: string]: string } = {};
+  const fragrances: { [key: string]: string } = {};
+  for (const product of products) {
+    if (product.volumes) {
+      const volumesObj = product.volumes instanceof Map
+        ? Object.fromEntries(product.volumes)
+        : product.volumes;
+      const [first] = Object.keys(volumesObj);
+      if (first) volumes[product.id] = first;
+    }
+    if (product.fragrances) {
+      const fragrancesObj = product.fragrances instanceof Map
+        ? Object.fromEntries(product.fragrances)
+        : product.fragrances;
+      const [first] = Object.keys(fragrancesObj);
+      if (first) fragrances[product.id] = first;
+    }
+  }
+  return { volumes, fragrances };
+}
+
 const Products: React.FC = () => {
   const { addToCart } = useCart();
   const { user } = useAuth();
@@ -34,111 +127,29 @@ const Products: React.FC = () => {
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
   // Toast "Connectez-vous" pour les visiteurs non connectés
   const [showLoginToast, setShowLoginToast] = useState(false);
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
   useEffect(() => {
-    fetchProducts();
-  }, []);
-  const fetchProducts = async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    try {
-      const apiUrl = getApiUrl();
-      const fullUrl = apiUrl ? `${apiUrl}/api/products/` : '/api/products/';
-      logger.log('Récupération des produits depuis:', fullUrl);
-      const response = await fetch(fullUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      logger.log('Réponse reçue');
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          logger.log('Produits reçus:', data.length, 'produits');
-          if (Array.isArray(data) && data.length > 0) {
-            const productsWithId = data.map((product) => ({
-              ...product,
-              id: product._id || product.id
-            }));
-            setAllProducts(productsWithId);
-            setError(null);
-            logger.log('Produits chargés avec succès');
-          } else {
-            logger.warn('Aucun produit trouvé dans la réponse');
-            setAllProducts([]);
-            setError(null);
-          }
-        } else {
-          logger.error('Réponse non-JSON reçue');
-        }
-      } else {
-        const errorText = await response.text().catch(() => 'Impossible de lire la réponse');
-        const isCloudflareError = errorText.includes('Cloudflare') || errorText.includes('Bad gateway');
-        if (response.status === 502) {
-          const errorMsg = isCloudflareError 
-            ? 'Le serveur backend n\'est pas accessible. Cloudflare ne peut pas joindre le serveur.'
-            : 'Le serveur backend n\'est pas accessible.';
-          logger.error('Erreur 502:', errorMsg);
-          setError(errorMsg);
-        } else if (response.status === 503) {
-          logger.error('Erreur 503: Service temporairement indisponible');
-          setError('Service temporairement indisponible. Veuillez réessayer dans quelques instants.');
-        } else if (response.status === 404) {
-          logger.error('Erreur 404: Route API non trouvée');
-          setError('Route API non trouvée. Vérifiez la configuration du serveur.');
-        } else {
-          logger.error('Erreur HTTP:', response.status, response.statusText);
-          setError(`Erreur ${response.status}: ${response.statusText}`);
-        }
-      }
-    } catch (error) {
-      clearTimeout(timeoutId);
-      const err = error instanceof Error ? error : new Error(String(error));
-      if (err.name === 'AbortError') {
-        const errorMsg = 'Le serveur ne répond pas dans les temps (timeout 10s)';
-        logger.error('Timeout:', errorMsg);
-        setError(errorMsg);
-      } else if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
-        const errorMsg = 'Impossible de joindre le serveur. Vérifiez votre connexion.';
-        logger.error('Erreur de connexion:', errorMsg);
-        setError(errorMsg);
-      } else {
+    const ac = new AbortController();
+    loadProducts(ac.signal)
+      .then(products => {
+        const { volumes, fragrances } = defaultSelections(products);
+        setAllProducts(products);
+        setSelectedVolumes(volumes);
+        setSelectedFragrances(fragrances);
+        setError(null);
+        setLoading(false);
+        logger.log('Produits chargés avec succès');
+      })
+      .catch(error => {
+        if (ac.signal.aborted) return;
         logger.error('Erreur lors de la récupération des produits:', error);
-        setError('Une erreur inattendue s\'est produite.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-  useEffect(() => {
-    if (allProducts.length > 0) {
-      const initialVolumes: { [key: string]: string } = {};
-      const initialFragrances: { [key: string]: string } = {};
-      allProducts.forEach((product) => {
-        if (product.volumes) {
-          const volumesObj = product.volumes instanceof Map 
-            ? Object.fromEntries(product.volumes)
-            : product.volumes;
-          if (Object.keys(volumesObj).length > 0) {
-            initialVolumes[product.id] = Object.keys(volumesObj)[0];
-          }
-        }
-        if (product.fragrances) {
-          const fragrancesObj = product.fragrances instanceof Map
-            ? Object.fromEntries(product.fragrances)
-            : product.fragrances;
-          if (Object.keys(fragrancesObj).length > 0) {
-            initialFragrances[product.id] = Object.keys(fragrancesObj)[0];
-          }
-        }
+        setError(productsErrorMessage(error));
+        setLoading(false);
       });
-      setSelectedVolumes(initialVolumes);
-      setSelectedFragrances(initialFragrances);
-    }
-  }, [allProducts]);
+    return () => ac.abort();
+  }, []);
   const categories = useMemo(() => {
     const uniqueCategories = new Set(allProducts.map(p => p.category));
     return ['Tous', ...Array.from(uniqueCategories)];

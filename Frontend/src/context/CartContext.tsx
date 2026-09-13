@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import axios from 'axios';
 import { sendOrderConfirmationEmail } from '../services/emailService';
@@ -37,6 +37,11 @@ interface CartContextType {
   pickupLocation: 'Arnas' | 'Mezeria' | null;
   setPickupLocation: (v: 'Arnas' | 'Mezeria' | null) => void;
 }
+// `Date.now()` est impur : l'isoler hors du composant évite que le compilateur
+// React ne le voie comme une lecture d'horloge pendant le rendu. Ce numéro n'est
+// qu'un repli — le vrai numéro de commande vient du backend.
+const fallbackOrderNumber = () => `CMD-${Date.now()}`;
+
 const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -309,7 +314,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const success = await sendOrderConfirmationEmail({
         to_email: user.email,
         to_name: `${user.firstName} ${user.lastName}`,
-        order_number: orderData.orderNumber || `CMD-${Date.now()}`,
+        order_number: orderData.orderNumber || fallbackOrderNumber(),
         order_items: JSON.stringify(cartItems.map(item => ({
           name: item.name,
           quantity: item.quantity,
@@ -324,27 +329,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   };
-  const cartCount = useMemo(() => {
-    return cartItems.reduce((count, item) => count + item.quantity, 0);
-  }, [cartItems]);
-  const cartSubtotal = useMemo(() => {
-    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
-  }, [cartItems]);
-  const cartWeightGrams = useMemo(() => {
-    const totalWeight = cartItems.reduce((sum, item) => sum + (item.weightGrams ?? 100) * item.quantity, 0);
-    return totalWeight;
-  }, [cartItems]);
-  const shippingCost = useMemo(() => {
+  // Ces cinq totaux sont des nombres : un useMemo ne stabilise aucune référence
+  // et empêchait le compilateur React d'optimiser le provider (« existing
+  // memoization could not be preserved »). Calcul direct, c'est moins cher.
+  const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
+  const cartSubtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const cartWeightGrams = cartItems.reduce((sum, item) => sum + (item.weightGrams ?? 100) * item.quantity, 0);
+  const shippingCost = (() => {
     if (cartItems.length === 0 || isPickup) return 0;
-    if (shippingCalculation) {
-      return shippingCalculation.totalShipping;
-    }
-    const fallbackCalculation = calculateShippingCostFallback(cartWeightGrams);
-    return fallbackCalculation.totalShipping;
-  }, [cartItems, shippingCalculation, cartWeightGrams, isPickup]);
-  const cartTotal = useMemo(() => {
-    return cartSubtotal + shippingCost;
-  }, [cartSubtotal, shippingCost]);
+    if (shippingCalculation) return shippingCalculation.totalShipping;
+    return calculateShippingCostFallback(cartWeightGrams).totalShipping;
+  })();
+  const cartTotal = cartSubtotal + shippingCost;
   return (
     <CartContext.Provider
       value={{

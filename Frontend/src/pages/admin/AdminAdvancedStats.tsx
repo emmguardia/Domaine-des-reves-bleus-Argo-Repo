@@ -10,6 +10,14 @@ interface AdvancedStats {
   topProducts?: Array<{ name: string; quantity: number; revenue: number }>;
 }
 
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+async function loadAdvancedStats(period: number, signal?: AbortSignal): Promise<AdvancedStats> {
+  const response = await adminFetch(`${getApiUrl()}/api/admin/stats/advanced?period=${period}`, { signal });
+  if (!response.ok) throw new Error(`Erreur HTTP stats avancées : ${response.status}`);
+  return response.json();
+}
 function AdminAdvancedStats() {
   const [stats, setStats] = useState<AdvancedStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,23 +27,20 @@ function AdminAdvancedStats() {
   const handlePeriodChange = (p: number) => {
     setPeriod(Math.max(3, p));
   };
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
   useEffect(() => {
-    fetchStats();
+    const ac = new AbortController();
+    loadAdvancedStats(period, ac.signal)
+      .then(data => { setStats(data); setLoading(false); })
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        console.error('Erreur lors du chargement des stats avancées:', error);
+        setLoading(false);
+      });
+    return () => ac.abort();
   }, [period]);
-  const fetchStats = async () => {
-    try {
-      const apiUrl = getApiUrl();
-      const response = await adminFetch(`${apiUrl}/api/admin/stats/advanced?period=${period}`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des stats avancées:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
   const handleExport = async () => {
     try {
       const apiUrl = getApiUrl();

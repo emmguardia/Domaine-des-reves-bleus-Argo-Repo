@@ -19,9 +19,58 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 const AUTH_STATE_CHANGED = 'authStateChanged';
+// Fonctions pures au niveau module : elles ne dépendent d'aucun state React.
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return true;
+    }
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < currentTime) {
+      logger.log('Token expiré');
+      return true;
+    }
+    return false;
+  } catch (error) {
+    logger.error('Erreur lors de la vérification du token:', error);
+    return true;
+  }
+};
+
+const parseStoredUser = (raw: string): User | null => {
+  try {
+    return JSON.parse(raw) as User;
+  } catch (error) {
+    logger.error('Erreur lors de la récupération des données utilisateur:', error);
+    return null;
+  }
+};
+
+// La session est relue de façon synchrone au tout premier rendu (initialiseur
+// paresseux de useState) au lieu d'être injectée par un effet : plus de rendu en
+// cascade, et plus d'éclair « déconnecté » avant la restauration de la session.
+const readStoredSession = (): User | null => {
+  logger.log('Vérification de l\'état de connexion au chargement...');
+  const storedUser = secureStorage.getItem('user');
+  const storedToken = secureStorage.getItem('token');
+  if (!storedUser || !storedToken) {
+    logger.log('Aucun utilisateur trouvé dans le stockage local');
+    return null;
+  }
+  if (isTokenExpired(storedToken)) {
+    logger.log('Token expiré, déconnexion automatique...');
+    return null;
+  }
+  const userData = parseStoredUser(storedUser);
+  if (userData) logger.log('Utilisateur trouvé dans le stockage local');
+  return userData;
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(readStoredSession);
   const updateUserState = (userData: User | null) => {
     logger.log('Mise à jour de l\'état utilisateur');
     setUser(userData);
@@ -34,45 +83,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     window.dispatchEvent(new CustomEvent(AUTH_STATE_CHANGED, { detail: userData }));
   };
-  const isTokenExpired = (token: string): boolean => {
-    try {
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return true; 
-      }
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const currentTime = Math.floor(Date.now() / 1000);
-      if (payload.exp && payload.exp < currentTime) {
-        logger.log('Token expiré');
-        return true;
-      }
-      return false;
-    } catch (error) {
-      logger.error('Erreur lors de la vérification du token:', error);
-      return true; 
-    }
-  };
+  // Purge d'une session invalide restée dans le stockage (jeton expiré ou
+  // données illisibles). C'est un effet de bord, donc un effet — mais il
+  // n'écrit aucun state : `readStoredSession` a déjà tranché au premier rendu.
   useEffect(() => {
-    logger.log('Vérification de l\'état de connexion au chargement...');
     const storedUser = secureStorage.getItem('user');
     const storedToken = secureStorage.getItem('token');
-    if (storedUser && storedToken) {
-      try {
-        if (isTokenExpired(storedToken)) {
-          logger.log('Token expiré, déconnexion automatique...');
-          updateUserState(null);
-          return;
-        }
-        const userData = JSON.parse(storedUser);
-        logger.log('Utilisateur trouvé dans le stockage local');
-        updateUserState(userData);
-      } catch (error) {
-        logger.error('Erreur lors de la récupération des données utilisateur:', error);
-        updateUserState(null);
-      }
-    } else {
-      logger.log('Aucun utilisateur trouvé dans le stockage local');
-      updateUserState(null);
+    if (!storedUser && !storedToken) return;
+    if (!storedUser || !storedToken || isTokenExpired(storedToken) || !parseStoredUser(storedUser)) {
+      logger.log('Session invalide dans le stockage local, purge');
+      secureStorage.removeItem('user');
+      secureStorage.removeItem('token');
     }
   }, []);
 

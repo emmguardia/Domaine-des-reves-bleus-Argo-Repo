@@ -39,6 +39,18 @@ interface Order {
     email: string;
   };
 }
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+async function loadHistory(apiUrl: string, signal?: AbortSignal): Promise<Order[]> {
+  const response = await adminFetch(`${apiUrl}/api/admin/orders`, { signal });
+  if (!response.ok) throw new Error(`Erreur HTTP historique : ${response.status}`);
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    throw new Error("Réponse non-JSON reçue pour l'historique");
+  }
+  return response.json();
+}
 function AdminOrderHistory() {
   const getOrderId = (order: Order) => String(order._id || order.id || '');
   const getPaymentIntentId = (order: Order) => String(order.paymentIntentId || order.payment_intent_id || '');
@@ -51,29 +63,20 @@ function AdminOrderHistory() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const API_URL = getApiUrl();
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
   useEffect(() => {
-    fetchHistory();
-  }, []);
-  const fetchHistory = async () => {
-    try {
-      const response = await adminFetch(`${API_URL}/api/admin/orders`);
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          setOrders(data);
-        } else {
-          console.error('Réponse non-JSON reçue pour l\'historique');
-        }
-      } else {
-        console.error('Erreur HTTP historique:', response.status);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération de l\'historique:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const ac = new AbortController();
+    loadHistory(API_URL, ac.signal)
+      .then(data => { setOrders(data); setLoading(false); })
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        console.error("Erreur lors de la récupération de l'historique:", error);
+        setLoading(false);
+      });
+    return () => ac.abort();
+  }, [API_URL]);
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid':

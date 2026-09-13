@@ -12,26 +12,42 @@ interface User {
   createdAt: string;
   ordersCount: number;
 }
+// L'appel réseau est isolé du state : il se contente de renvoyer les données.
+// L'effet peut alors n'écrire dans le state que depuis le callback de la
+// promesse, et jamais synchroniquement dans son corps.
+async function loadUsers(apiUrl: string, signal?: AbortSignal): Promise<User[]> {
+  const response = await adminFetch(`${apiUrl}/api/admin/users`, { signal });
+  if (!response.ok) throw new Error(`Erreur HTTP utilisateurs : ${response.status}`);
+  return response.json();
+}
 function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const API_URL = getApiUrl();
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  // Rechargement déclenché par l'interface (après suppression).
   const fetchUsers = async () => {
     try {
-      const response = await adminFetch(`${API_URL}/api/admin/users`);
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
-      }
+      setUsers(await loadUsers(API_URL));
     } catch (error) {
       logger.error('Erreur:', error);
     } finally {
       setLoading(false);
     }
   };
+  // Chargement initial. L'AbortController annule la requête au démontage : plus
+  // de mise à jour d'un composant disparu, et en StrictMode la réponse du
+  // premier montage ne vient plus écraser celle du second.
+  useEffect(() => {
+    const ac = new AbortController();
+    loadUsers(API_URL, ac.signal)
+      .then(data => { setUsers(data); setLoading(false); })
+      .catch(error => {
+        if (ac.signal.aborted) return;
+        logger.error('Erreur:', error);
+        setLoading(false);
+      });
+    return () => ac.abort();
+  }, [API_URL]);
   const handleDelete = async (id: number) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
     try {
