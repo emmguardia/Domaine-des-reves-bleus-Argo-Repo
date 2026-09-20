@@ -9,7 +9,7 @@ secretName: domaine-des-reves-bleus-secrets
 
 # ── Backend (Node.js) ─────────────────────────────────────────────────────────
 backend:
-  image: ghcr.io/emmguardia/domaine-des-reves-bleus-back@sha256:e9ada04152702cad30e9ed2cc51dfe9d80ee795950efbb19be1dcf7da41c16aa
+  image: ghcr.io/emmguardia/domaine-des-reves-bleus-back@sha256:403e672271ae706a362494d8082e209ce7aa37b369c8a4fadd27032cdad154a2
   imagePullPolicy: IfNotPresent
   replicas: 1
   strategy:
@@ -47,7 +47,7 @@ backend:
 
 # ── Frontend (nginx) ──────────────────────────────────────────────────────────
 frontend:
-  image: ghcr.io/emmguardia/domaine-des-reves-bleus-front@sha256:a8de142d778261c7ae343bdb81cb915a99f1e0ab6acb13175dd23f2dfaa176e4
+  image: ghcr.io/emmguardia/domaine-des-reves-bleus-front@sha256:406836015df864d6864d6cb0fe2d10b7be727ee79d15e6b0342fba691864aebe
   imagePullPolicy: IfNotPresent
   replicas: 1
   strategy:
