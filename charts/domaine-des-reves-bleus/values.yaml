@@ -49,7 +49,7 @@ backend:
 frontend:
   image: ghcr.io/emmguardia/domaine-des-reves-bleus-front@sha256:406836015df864d6864d6cb0fe2d10b7be727ee79d15e6b0342fba691864aebe
   imagePullPolicy: IfNotPresent
-  replicas: 1
+  replicas: 2
   strategy:
     rollingUpdate:
       maxUnavailable: 0
@@ -64,7 +64,7 @@ frontend:
       memory: "128Mi"
   hpa:
     enabled: true
-    minReplicas: 1
+    minReplicas: 2
     maxReplicas: 5
     cpuTarget: 70
     memoryTarget: 80
