@@ -22,6 +22,14 @@ spec:
       labels:
         {{- include "drb.frontend.selectorLabels" . | nindent 8 }}
     spec:
+      # 2 réplicas répartis sur 2 nœuds : la perte d'un nœud ne coupe pas le site.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "drb.frontend.selectorLabels" . | nindent 14 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 101    # user nginx dans l'image officielle alpine

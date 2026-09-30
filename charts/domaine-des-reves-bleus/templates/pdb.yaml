@@ -7,7 +7,9 @@ metadata:
   name: domaine-des-reves-bleus-backend-pdb
   namespace: {{ include "drb.namespace" . }}
 spec:
-  minAvailable: 1
+  # Backend à 1 réplica : « minAvailable: 1 » interdisait toute éviction et
+  # bloquait « kubectl drain » du nœud. maxUnavailable: 1 laisse drainer.
+  maxUnavailable: 1
   selector:
     matchLabels:
       {{- include "drb.backend.selectorLabels" . | nindent 6 }}
