@@ -37,7 +37,13 @@ function AdminResetPassword() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password }),
       });
-      const data = await response.json().catch(() => ({}));
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        // Le rate-limiter répond en texte brut (« Trop de tentatives… »)
+        const text = await response.text();
+        throw new Error(text.substring(0, 200) || 'Erreur lors de la réinitialisation');
+      }
+      const data = await response.json();
       if (!response.ok) {
         throw new Error(data.detail || data.message || 'Erreur lors de la réinitialisation');
       }
@@ -129,7 +135,7 @@ function AdminResetPassword() {
                 )}
               </div>
             </div>
-            <button type="submit" disabled={loading || !allRulesOk || !matches} className="button-primary w-full">
+            <button type="submit" disabled={loading || !allRulesOk || !matches} className="button-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? 'Enregistrement...' : 'Enregistrer le mot de passe'}
             </button>
           </form>
