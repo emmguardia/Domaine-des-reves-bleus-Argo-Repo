@@ -21,6 +21,7 @@ const CGV = lazy(() => import('./pages/CGV'));
 const PolitiqueConfidentialite = lazy(() => import('./pages/PolitiqueConfidentialite'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const AdminResetPassword = lazy(() => import('./pages/AdminResetPassword'));
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const location = useLocation();
@@ -64,6 +65,7 @@ function AppContent() {
               <Route path="/cgv" element={<CGV />} />
               <Route path="/politique-de-confidentialite" element={<PolitiqueConfidentialite />} />
               <Route path="/admin-panel" element={<AdminLogin />} />
+              <Route path="/admin-panel/reset-password" element={<AdminResetPassword />} />
               <Route path="/admin-panel/*" element={<AdminPanel />} />
           </Routes>
         </Suspense>

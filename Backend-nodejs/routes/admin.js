@@ -1,10 +1,11 @@
 import express from 'express';
 import { query, transaction } from '../config/database.js';
 import { verifyAdminToken } from '../middleware/auth.js';
-import { verifyPassword } from '../utils/password.js';
+import { verifyPassword, hashPassword } from '../utils/password.js';
+import { createHash } from 'crypto';
 import { generateAdminToken } from '../utils/jwt.js';
 import { validateProductId, validateCreateProduct, handleValidationErrors, body, param } from '../middleware/validation.js';
-import { adminAuthRateLimiter } from '../config/security.js';
+import { adminAuthRateLimiter, adminResetRateLimiter } from '../config/security.js';
 import { checkIPBan, recordFailedAttempt, resetFailedAttempts, isIPBanned } from '../middleware/ipBan.js';
 import { getStripe } from '../config/stripe.js';
 import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from '../utils/email.js';
@@ -97,6 +98,68 @@ router.post('/login', adminAuthRateLimiter, async (req, res) => {
       error: 'Erreur serveur',
       detail: 'Erreur lors de la connexion'
     });
+  }
+});
+
+/**
+ * Règle mot de passe admin : 10 caractères mini, au moins une lettre et un caractère spécial.
+ * Max 72 car. (limite bcrypt : au-delà le mot de passe serait tronqué silencieusement).
+ */
+export const checkAdminPassword = (password) => {
+  if (typeof password !== 'string' || password.length < 10) return 'Le mot de passe doit contenir au moins 10 caractères';
+  if (password.length > 72) return 'Le mot de passe ne doit pas dépasser 72 caractères';
+  if (!/\p{L}/u.test(password)) return 'Le mot de passe doit contenir au moins une lettre';
+  if (!/[^\p{L}\p{N}\s]/u.test(password)) return 'Le mot de passe doit contenir au moins un caractère spécial';
+  return null;
+};
+
+/**
+ * POST /api/admin/reset-password
+ * Réinitialisation via lien à usage unique (généré par scripts/admin-reset-link.mjs).
+ * Seul le SHA-256 du token est stocké en base.
+ */
+router.post('/reset-password', adminResetRateLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body || {};
+
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
+      return res.status(400).json({ error: 'Erreur', detail: 'Lien invalide ou expiré' });
+    }
+
+    const passwordError = checkAdminPassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: 'Erreur', detail: passwordError });
+    }
+
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const admins = await query(
+      'SELECT id, username FROM admins WHERE reset_token_hash = ? AND reset_token_expiry > NOW()',
+      [tokenHash]
+    );
+
+    if (!admins || admins.length === 0) {
+      console.warn('⚠️  [ADMIN-RESET] Lien invalide ou expiré');
+      return res.status(400).json({ error: 'Erreur', detail: 'Lien invalide ou expiré' });
+    }
+
+    const admin = admins[0];
+    const hashedPassword = await hashPassword(password);
+    // Condition sur le hash : usage unique même en cas de double soumission concurrente
+    const result = await query(
+      'UPDATE admins SET password = ?, reset_token_hash = NULL, reset_token_expiry = NULL WHERE id = ? AND reset_token_hash = ?',
+      [hashedPassword, admin.id, tokenHash]
+    );
+
+    if (!result || result.affectedRows !== 1) {
+      return res.status(400).json({ error: 'Erreur', detail: 'Lien invalide ou expiré' });
+    }
+
+    resetFailedAttempts(req);
+    console.log('✅ [ADMIN-RESET] Mot de passe réinitialisé pour:', admin.username);
+    res.json({ success: true, username: admin.username });
+  } catch (error) {
+    console.error('❌ [ADMIN-RESET] Erreur:', error);
+    res.status(500).json({ error: 'Erreur serveur', detail: 'Erreur lors de la réinitialisation' });
   }
 });
 
