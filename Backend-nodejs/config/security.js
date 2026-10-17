@@ -34,6 +34,12 @@ export const adminAuthRateLimiter = createRateLimiter(
   'Trop de tentatives de connexion admin. Votre IP sera bannie après 3 tentatives échouées.'
 );
 
+export const adminResetRateLimiter = createRateLimiter(
+  60 * 60 * 1000,
+  10,
+  'Trop de tentatives de réinitialisation. Veuillez réessayer dans 1 heure.'
+);
+
 export const publicRateLimiter = createRateLimiter(
   15 * 60 * 1000,
   100,
