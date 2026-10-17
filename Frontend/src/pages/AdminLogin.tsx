@@ -31,12 +31,13 @@ function AdminLogin() {
       });
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
+        // Le rate-limiter répond en texte brut (« Trop de tentatives… »)
         const text = await response.text();
-        throw new Error(`Réponse non-JSON: ${text.substring(0, 100)}`);
+        throw new Error(response.ok ? 'Réponse inattendue du serveur' : text.substring(0, 200) || 'Erreur de connexion');
       }
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Erreur de connexion');
+        throw new Error(data.detail || data.message || 'Erreur de connexion');
       }
       secureStorage.setItem('adminToken', data.token);
       secureStorage.setItem('adminUser', JSON.stringify(data.admin));

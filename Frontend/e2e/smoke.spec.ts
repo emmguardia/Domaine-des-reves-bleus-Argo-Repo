@@ -32,3 +32,14 @@ for (const path of ['/services', '/contact', '/cgv', '/mentions-legales']) {
     await expect(page.locator('#root')).not.toBeEmpty();
   });
 }
+
+test('la page de réinitialisation admin affiche le formulaire avec un token', async ({ page }) => {
+  await page.goto('/admin-panel/reset-password#token=' + 'A'.repeat(43));
+  await expect(page.getByLabel('Nouveau mot de passe')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enregistrer le mot de passe' })).toBeDisabled();
+});
+
+test('la page de réinitialisation admin refuse un lien sans token', async ({ page }) => {
+  await page.goto('/admin-panel/reset-password');
+  await expect(page.getByText('Lien invalide')).toBeVisible();
+});
